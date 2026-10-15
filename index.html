@@ -547,9 +547,11 @@ function toast(msg, btnLabel, fn){
 $('#toastBtn').addEventListener('click', () => { $('#toast').classList.add('hidden'); if(toastFn) toastFn(); });
 
 let MC = null; // contesto modale
+let GHOST_T = 0;   // finestra aperta da un tocco (non da un click): il click che segue va ignorato
+const ghostClick = () => { if(GHOST_T && Date.now() - GHOST_T < 500){ GHOST_T = 0; return true; } GHOST_T = 0; return false; };
 function openModal(html, ctx){ MC = ctx || {}; $('#sheet').innerHTML = html; $('#modal').classList.remove('hidden'); const f = $('#sheet [autofocus]'); if(f) setTimeout(() => f.focus(), 60); }
 function closeModal(){ $('#modal').classList.add('hidden'); MC = null; }
-$('#modal').addEventListener('click', e => { if(e.target.id === 'modal') closeModal(); });
+$('#modal').addEventListener('click', e => { if(e.target.id === 'modal' && !ghostClick()) closeModal(); });
 
 function pickModal(title, options, cb, extra, wide){
   openModal(`<h2>${esc(title)}</h2>${extra||''}<div class="pick ${wide?'wide':''}">${options.map((o,i) =>
@@ -791,7 +793,7 @@ function renderCampo(m){
   return planBar(m) + `<div class="campo">
     <div class="pitchwrap">
       <div class="pitch ${m.flip?'flip':''}" id="pitch">${PITCH_SVG}${trace ? `<svg class="trace" viewBox="0 0 105 68" preserveAspectRatio="none">${trace}</svg>` : ''}${ghosts}${toks}</div>
-      <div class="pitchfoot"><span>${plan && empty ? `<b>Tocca un <span class="plus">+</span> per inserire il numero (${empty} posizioni vuote)</b>` : (m.flip ? 'La nostra porta ⟶' : '⟵ La nostra porta') + '. Trascina un giocatore per spostarlo, toccalo per selezionarlo.'}</span>
+      <div class="pitchfoot"><span>${plan && empty ? `<b>Tocca un <span class="plus">+</span> per inserire il numero (${empty} posizioni vuote)</b>` : (m.flip ? 'La nostra porta ⟶' : '⟵ La nostra porta') + '. Trascina un giocatore per spostarlo, toccalo per selezionarlo, doppio tocco per il cambio.'}</span>
       <span>${unplaced.length ? `<b style="color:var(--warn)">Da ricollocare: ${unplaced.map(p=>p.n).join(', ')}</b> ` : ''}${unmarked.length ? `<b style="color:var(--warn)">Senza marcatore: ${unmarked.map(p=>p.n).join(', ')}</b>` : (on.length ? '<b style="color:var(--ok)">Tutti marcati</b>' : '')}</span></div>
     </div>
     <aside class="card panel">${UI.sel ? panelSel(m, oppBy(UI.sel)) : panelOverview(m, free)}</aside>
@@ -896,6 +898,20 @@ function swapOppPos(a, b, from){
   if(started(M())) addNote({cat:'Marcature', side:'marc', text:`Scambio posizioni: ${a.n} ↔ ${b.n}${a.mk ? ' (' + a.n + ' marcato da ' + nOur(a.mk) + ')' : ''}`, auto:true});
   save();
 }
+let LAST_TAP = {id:null, t:0};
+/* Doppio tocco su un avversario: cambio rapido scegliendo dalla distinta */
+function quickSubOpp(out){
+  const m = M(), bench = m.their.filter(q => !q.on && !q.exited).sort(byN);
+  const opts = bench.map(q => ({label:String(q.n), sub:q.name || ''}));
+  opts.push({label:'Altro n°', sub:'non è in distinta'});
+  pickModal(`Cambio: esce il ${out.n}${out.name ? ' (' + out.name + ')' : ''}. Chi entra?`, opts, i => {
+    if(i >= bench.length){ UI.sel = out.id; ACT.subOpp(); return; }
+    const inn = bench[i]; swapOpp(m, out, inn);
+    addNote({cat:'Marcature', side:'marc', text:`Cambio loro: esce ${out.n}, entra ${inn.n}${inn.mk ? ' (lo marca ' + nOur(inn.mk) + ')' : ''}`, auto:true});
+    UI.sel = inn.id; save(); render();
+    toast(`Entrato il n°${inn.n} al posto del ${out.n}${inn.mk ? ': lo marca ' + nOur(inn.mk) : ''}`);
+  }, bench.length ? '' : '<p class="hint">Nessun avversario in panchina nella distinta: usa «Altro n°».</p>', true);
+}
 function bindPitch(){
   const pitch = $('#pitch'); if(!pitch) return;
   let drag = null;
@@ -932,7 +948,12 @@ function bindPitch(){
       if(target){ swapOppPos(p, target.q, {x:d.ox, y:d.oy}); render(); toast(`Scambiati ${p.n} e ${target.q.n}`); return; }
       p.x = +d.x.toFixed(1); p.y = +d.y.toFixed(1); save(); if(activePlan(M())) render();
     }
-    else if(p){ UI.sel = UI.sel === p.id ? null : p.id; render(); }
+    else if(p){
+      const now = Date.now(), dbl = LAST_TAP.id === p.id && now - LAST_TAP.t < 450;
+      LAST_TAP = dbl ? {id:null, t:0} : {id:p.id, t:now};
+      if(dbl){ UI.sel = p.id; render(); GHOST_T = Date.now(); quickSubOpp(p); return; }
+      UI.sel = UI.sel === p.id ? null : p.id; render();
+    }
   };
   pitch.addEventListener('pointerup', end);
   pitch.addEventListener('pointercancel', () => { if(drag) drag.t.classList.remove('dragging'); drag = null; });
@@ -1730,6 +1751,7 @@ const ACT = {
 
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if(!el) return;
+  if(el.closest('#sheet') && ghostClick()) return;
   const f = ACT[el.dataset.act]; if(f){ f(el, e); }
 });
 document.addEventListener('input', e => {
