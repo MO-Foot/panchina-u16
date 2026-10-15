@@ -1100,7 +1100,7 @@ function subsCount(){ const n = [...document.querySelectorAll('[data-out]')].fil
 function boardNums(m, side){
   const list = side === 'our' ? field(m).sort(byN) : oppOn(m).sort(byN);
   if(!list.length) return [1,2,3,4,5,6,7,8,9,10,11];
-  const gk = list.find(p => p.gk), rest = list.filter(p => p !== gk).map(p => p.n).slice(0, 10);
+  const gk = side === 'our' ? (list.find(p => p.gk) || list.find(p => p.n === 1)) : oppGK(m), rest = list.filter(p => p !== gk).map(p => p.n).slice(0, 10);
   const out = [gk ? gk.n : 'P', ...rest]; while(out.length < 11) out.push('–'); return out;
 }
 function boardPlace(nums, f, side){
@@ -1108,6 +1108,27 @@ function boardPlace(nums, f, side){
   const keyed = nums.map(n => typeof n === 'number' ? n : null);
   const pos = assignRoles(keyed.map((n, i) => n == null ? (i === 0 ? 1 : -1 - i) : n), rolePositions(f, side, xs));
   return nums.map((n, i) => ({n, x:(pos[i] || {x:50}).x, y:(pos[i] || {y:50}).y}));
+}
+/* Lavagna dal Campo: avversari nelle loro posizioni, i nostri accanto all'uomo che marcano */
+function boardFromCampo(m){
+  const b = m.board || (m.board = {fOur:'4-3-3', fOpp: m.formation || '4-4-2', lines:[], ball:{x:50, y:50}});
+  const plan = activePlan(m); b.fOpp = (plan && plan.formation) || m.formation || b.fOpp;
+  const opp = oppOn(m).filter(q => q.x != null);
+  if(!opp.length){ boardReset(m); return false; }
+  b.opp = opp.sort(byN).map(q => ({n:q.n, x:q.x, y:q.y}));
+  const tit = field(m).sort(byN);
+  if(!tit.length){ b.our = boardPlace(boardNums(m, 'our'), b.fOur, 'our'); b.ball = {x:50, y:50}; return true; }
+  const gk = tit.find(o => o.gk) || tit.find(o => o.n === 1);
+  const placed = [], rest = [];
+  tit.forEach(o => {
+    if(o === gk){ placed.push({n:o.n, x:6, y:50}); return; }
+    const t = opp.find(q => q.mk === o.id);
+    if(t) placed.push({n:o.n, x:+Math.max(3, t.x - 5).toFixed(1), y:+Math.min(95, t.y + 4).toFixed(1)});
+    else rest.push(o.n);
+  });
+  if(rest.length){ const fill = boardPlace([gk ? gk.n : 'P', ...rest], b.fOur, 'our').slice(1); fill.forEach(f => placed.push(f)); }
+  b.our = placed; b.ball = {x:50, y:50};
+  return true;
 }
 function boardReset(m, which){
   const b = m.board || (m.board = {fOur:'4-3-3', fOpp: m.formation || '4-4-2', lines:[], ball:{x:50, y:50}});
@@ -1117,14 +1138,14 @@ function boardReset(m, which){
 }
 const svgPts = pts => pts.map(p => (p[0]*1.05).toFixed(2) + ',' + (p[1]*.68).toFixed(2)).join(' ');
 function renderBoard(m){
-  if(!m.board) boardReset(m);
+  if(!m.board) boardFromCampo(m);
   const b = m.board, draw = UI.bMode === 'draw';
   const fsel = (k, v) => `<select data-bf="${k}" aria-label="Modulo">${Object.keys(FORM).map(f => `<option value="${f}" ${f===v?'selected':''}>1-${f}</option>`).join('')}</select>`;
   const toks = [...b.opp.map((p, i) => `<div class="tok" data-b="opp:${i}" style="left:${p.x}%;top:${p.y}%">${p.n}</div>`), ...b.our.map((p, i) => `<div class="tok ourt" data-b="our:${i}" style="left:${p.x}%;top:${p.y}%">${p.n}</div>`)].join('');
   return `<div class="bbar">
     <label class="bsel"><span class="sw our"></span>Noi ${fsel('fOur', b.fOur)}</label>
     <label class="bsel"><span class="sw opp"></span>Loro ${fsel('fOpp', b.fOpp)}</label>
-    <button class="btn" data-act="bReset">Ripristina</button>
+    <button class="btn" data-act="bReset" title="Ricarica giocatori e posizioni dal Campo">⤓ Dal campo</button>
     <button class="btn ${m.flip?'pri':''}" data-act="flip" title="Gira il campo come lo vedi dalla panchina">⟲ Gira campo</button>
     <span style="flex:1"></span>
     ${tokSizer()}
@@ -1136,7 +1157,7 @@ function renderBoard(m){
   <div class="pitchwrap"><div class="pitch board ${draw?'drawing':''} ${m.flip?'flip':''}" id="board">${PITCH_SVG}
     <svg class="ink" viewBox="0 0 105 68" preserveAspectRatio="none"><defs><marker id="ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ffe14d"/></marker></defs>${b.lines.map(l => `<polyline points="${svgPts(l)}" marker-end="url(#ah)"/>`).join('')}<polyline id="inkNow" points=""/></svg>
     ${toks}<div class="ball" data-b="ball" style="left:${b.ball.x}%;top:${b.ball.y}%"></div></div>
-    <div class="pitchfoot"><span>${draw ? 'Disegna col dito: ogni tratto finisce con una freccia.' : 'Trascina giocatori e pallone. I numeri vengono dalla partita (titolari e avversari in campo), altrimenti 1-11.'}</span></div></div>`;
+    <div class="pitchfoot"><span>${draw ? 'Disegna col dito: ogni tratto finisce con una freccia.' : 'Trascina giocatori e pallone. «Dal campo» riprende gli avversari dove sono nel Campo e mette i nostri accanto all\'uomo che marcano.'}</span></div></div>`;
 }
 function bindBoard(){
   const el = $('#board'); if(!el) return;
@@ -1489,7 +1510,7 @@ const ACT = {
     else toast(`${done.length} ${done.length === 1 ? 'cambio' : 'cambi'} avversari: segna le altezze dei nuovi`, 'Vai alle altezze', () => { S.view = 'corner'; UI.spTab = 'alt'; render(); });
   },
   bMode(el){ UI.bMode = el.dataset.v; render(); },
-  bReset(){ boardReset(M()); save(); render(); },
+  bReset(){ const ok = boardFromCampo(M()); save(); render(); toast(ok ? 'Lavagna aggiornata dal Campo' : 'Nel Campo non ci sono avversari: disposti secondo i moduli'); },
   bUndo(){ M().board.lines.pop(); save(); render(); },
   bClear(){ M().board.lines = []; save(); render(); },
   resetPos(){ const m = M(), p = oppBy(UI.sel), plan = activePlan(m), s = plan && plan.slots.find(x => x.id === p.slot); if(s){ p.x = s.x; p.y = s.y; save(); render(); } },
@@ -1841,9 +1862,7 @@ if(M().clock.run && !M().clock.t0) M().clock.run = false;
 render();
 setTimeout(() => syncNow(false), 800);
 if(!storageOK) toast('Salvataggio non disponibile: esporta la partita prima di chiudere');
-
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){ window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); }); }
-try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
 </script>
 </body>
 </html>
