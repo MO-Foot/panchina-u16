@@ -1100,7 +1100,7 @@ function subsCount(){ const n = [...document.querySelectorAll('[data-out]')].fil
 function boardNums(m, side){
   const list = side === 'our' ? field(m).sort(byN) : oppOn(m).sort(byN);
   if(!list.length) return [1,2,3,4,5,6,7,8,9,10,11];
-  const gk = side === 'our' ? (list.find(p => p.gk) || list.find(p => p.n === 1)) : oppGK(m), rest = list.filter(p => p !== gk).map(p => p.n).slice(0, 10);
+  const gk = side === 'our' ? ourGK(m) : oppGK(m), rest = list.filter(p => p !== gk).map(p => p.n).slice(0, 10);
   const out = [gk ? gk.n : 'P', ...rest]; while(out.length < 11) out.push('–'); return out;
 }
 function boardPlace(nums, f, side){
@@ -1109,16 +1109,22 @@ function boardPlace(nums, f, side){
   const pos = assignRoles(keyed.map((n, i) => n == null ? (i === 0 ? 1 : -1 - i) : n), rolePositions(f, side, xs));
   return nums.map((n, i) => ({n, x:(pos[i] || {x:50}).x, y:(pos[i] || {y:50}).y}));
 }
+/* Nostro portiere: segnato come portiere, o il n. 1, o l'unico titolare che non marca nessuno */
+function ourGK(m){
+  const tit = field(m), f = tit.find(o => o.gk) || tit.find(o => o.n === 1); if(f) return f;
+  const marked = new Set(oppOn(m).map(q => q.mk).filter(Boolean)), free = tit.filter(o => !marked.has(o.id));
+  return marked.size && free.length === 1 ? free[0] : null;
+}
 /* Lavagna dal Campo: avversari nelle loro posizioni, i nostri accanto all'uomo che marcano */
-function boardFromCampo(m){
+function boardFromCampo(m, keepBall){
   const b = m.board || (m.board = {fOur:'4-3-3', fOpp: m.formation || '4-4-2', lines:[], ball:{x:50, y:50}});
   const plan = activePlan(m); b.fOpp = (plan && plan.formation) || m.formation || b.fOpp;
   const opp = oppOn(m).filter(q => q.x != null);
-  if(!opp.length){ boardReset(m); return false; }
+  if(!opp.length){ const ball = b.ball; boardReset(m); if(keepBall) b.ball = ball; return false; }
   b.opp = opp.sort(byN).map(q => ({n:q.n, x:q.x, y:q.y}));
   const tit = field(m).sort(byN);
-  if(!tit.length){ b.our = boardPlace(boardNums(m, 'our'), b.fOur, 'our'); b.ball = {x:50, y:50}; return true; }
-  const gk = tit.find(o => o.gk) || tit.find(o => o.n === 1);
+  if(!tit.length){ b.our = boardPlace(boardNums(m, 'our'), b.fOur, 'our'); if(!keepBall) b.ball = {x:50, y:50}; return true; }
+  const gk = ourGK(m);
   const placed = [], rest = [];
   tit.forEach(o => {
     if(o === gk){ placed.push({n:o.n, x:6, y:50}); return; }
@@ -1127,7 +1133,7 @@ function boardFromCampo(m){
     else rest.push(o.n);
   });
   if(rest.length){ const fill = boardPlace([gk ? gk.n : 'P', ...rest], b.fOur, 'our').slice(1); fill.forEach(f => placed.push(f)); }
-  b.our = placed; b.ball = {x:50, y:50};
+  b.our = placed; if(!keepBall) b.ball = {x:50, y:50};
   return true;
 }
 function boardReset(m, which){
@@ -1138,7 +1144,7 @@ function boardReset(m, which){
 }
 const svgPts = pts => pts.map(p => (p[0]*1.05).toFixed(2) + ',' + (p[1]*.68).toFixed(2)).join(' ');
 function renderBoard(m){
-  if(!m.board) boardFromCampo(m);
+  if(!m.board || !m.board.man) boardFromCampo(m, true);   // finché non sposti pedine a mano, la lavagna segue il Campo
   const b = m.board, draw = UI.bMode === 'draw';
   const fsel = (k, v) => `<select data-bf="${k}" aria-label="Modulo">${Object.keys(FORM).map(f => `<option value="${f}" ${f===v?'selected':''}>1-${f}</option>`).join('')}</select>`;
   const toks = [...b.opp.map((p, i) => `<div class="tok" data-b="opp:${i}" style="left:${p.x}%;top:${p.y}%">${p.n}</div>`), ...b.our.map((p, i) => `<div class="tok ourt" data-b="our:${i}" style="left:${p.x}%;top:${p.y}%">${p.n}</div>`)].join('');
@@ -1157,7 +1163,7 @@ function renderBoard(m){
   <div class="pitchwrap"><div class="pitch board ${draw?'drawing':''} ${m.flip?'flip':''}" id="board">${PITCH_SVG}
     <svg class="ink" viewBox="0 0 105 68" preserveAspectRatio="none"><defs><marker id="ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ffe14d"/></marker></defs>${b.lines.map(l => `<polyline points="${svgPts(l)}" marker-end="url(#ah)"/>`).join('')}<polyline id="inkNow" points=""/></svg>
     ${toks}<div class="ball" data-b="ball" style="left:${b.ball.x}%;top:${b.ball.y}%"></div></div>
-    <div class="pitchfoot"><span>${draw ? 'Disegna col dito: ogni tratto finisce con una freccia.' : 'Trascina giocatori e pallone. «Dal campo» riprende gli avversari dove sono nel Campo e mette i nostri accanto all\'uomo che marcano.'}</span></div></div>`;
+    <div class="pitchfoot"><span>${draw ? 'Disegna col dito: ogni tratto finisce con una freccia.' : (b.man ? 'Hai spostato pedine a mano: la lavagna non segue più il Campo. «Dal campo» la riallinea.' : 'La lavagna segue il Campo: avversari dove li hai messi, i nostri accanto all\'uomo che marcano. Se sposti una pedina, resta com\'è finché non premi «Dal campo».')}</span></div></div>`;
 }
 function bindBoard(){
   const el = $('#board'); if(!el) return;
@@ -1178,7 +1184,7 @@ function bindBoard(){
     if(!d) return; const b = M().board;
     if(d.draw){ if(d.pts.length > 2){ b.lines.push(d.pts); save(); } d = null; render(); return; }
     d.t.classList.remove('dragging');
-    if(d.x != null){ const [side, i] = d.key.split(':'); const o = side === 'ball' ? b.ball : b[side][+i]; o.x = +d.x.toFixed(1); o.y = +d.y.toFixed(1); save(); }
+    if(d.x != null){ const [side, i] = d.key.split(':'); const o = side === 'ball' ? b.ball : b[side][+i]; o.x = +d.x.toFixed(1); o.y = +d.y.toFixed(1); if(side !== 'ball') b.man = true; save(); }
     d = null;
   };
   el.addEventListener('pointerup', end);
@@ -1510,7 +1516,7 @@ const ACT = {
     else toast(`${done.length} ${done.length === 1 ? 'cambio' : 'cambi'} avversari: segna le altezze dei nuovi`, 'Vai alle altezze', () => { S.view = 'corner'; UI.spTab = 'alt'; render(); });
   },
   bMode(el){ UI.bMode = el.dataset.v; render(); },
-  bReset(){ const ok = boardFromCampo(M()); save(); render(); toast(ok ? 'Lavagna aggiornata dal Campo' : 'Nel Campo non ci sono avversari: disposti secondo i moduli'); },
+  bReset(){ const m = M(); const ok = boardFromCampo(m); m.board.man = false; save(); render(); toast(ok ? 'Lavagna aggiornata dal Campo' : 'Nel Campo non ci sono avversari: disposti secondo i moduli'); },
   bUndo(){ M().board.lines.pop(); save(); render(); },
   bClear(){ M().board.lines = []; save(); render(); },
   resetPos(){ const m = M(), p = oppBy(UI.sel), plan = activePlan(m), s = plan && plan.slots.find(x => x.id === p.slot); if(s){ p.x = s.x; p.y = s.y; save(); render(); } },
@@ -1713,7 +1719,7 @@ document.addEventListener('change', e => {
   if(e.target.dataset.f === 'formation'){ render(); }
   if(e.target.dataset && e.target.dataset.out !== undefined){ subsCount(); }
   if(e.target.id === 'kPat'){ $('#kPrev').innerHTML = kitDot({c1:$('#kC1').value, c2:$('#kC2').value, ink:$('#kInk').value, pat:$('#kPat').value}, 40); }
-  if(e.target.dataset.bf){ const m = M(); m.board[e.target.dataset.bf] = e.target.value; boardReset(m, e.target.dataset.bf === 'fOur' ? 'our' : 'opp'); save(); render(); }
+  if(e.target.dataset.bf){ const m = M(); m.board[e.target.dataset.bf] = e.target.value; m.board.man = true; boardReset(m, e.target.dataset.bf === 'fOur' ? 'our' : 'opp'); save(); render(); }
   if(e.target.id === 'impFile' && e.target.files[0]){
     const r = new FileReader();
     r.onload = () => { try{ const n = importData(JSON.parse(r.result)); render(); toast(n + ' partite importate'); }catch(err){ toast('File non riconosciuto'); } };
