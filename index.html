@@ -916,12 +916,14 @@ function bindPitch(){
   const pitch = $('#pitch'); if(!pitch) return;
   let drag = null;
   pitch.addEventListener('pointerdown', e => {
-    const t = e.target.closest('.tok'); if(!t) return;
+    const t = e.target.closest('.tok');
+    if(!t){ drag = {empty:true, sx:e.clientX, sy:e.clientY}; return; }   // tocco sul prato: toglie la selezione
     e.preventDefault(); t.setPointerCapture(e.pointerId);
     const p0 = t.dataset.tok && oppBy(t.dataset.tok);
     drag = {t, id:t.dataset.tok, slot:t.dataset.slot, ghost:t.classList.contains('ghost'), sx:e.clientX, sy:e.clientY, moved:false, ox:p0 ? p0.x : null, oy:p0 ? p0.y : null};
   });
   pitch.addEventListener('pointermove', e => {
+    if(drag && drag.empty){ if(Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy) > 10) drag = null; return; }
     if(!drag || drag.ghost) return;
     if(!drag.moved && Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy) < 8) return;
     drag.moved = true; drag.t.classList.add('dragging');
@@ -933,6 +935,7 @@ function bindPitch(){
   const end = () => {
     if(!drag) return;
     const d = drag; drag = null;
+    if(d.empty){ if(UI.sel || UI.selSlot){ UI.sel = null; UI.selSlot = null; render(); } return; }
     if(d.ghost){ openKeypad(d.slot); return; }
     if(d.slot){ // modifica piano
       const plan = (M().plans || []).find(p => p.id === UI.editPlan), s = plan && plan.slots.find(x => x.id === d.slot); if(!s) return;
@@ -956,7 +959,7 @@ function bindPitch(){
     }
   };
   pitch.addEventListener('pointerup', end);
-  pitch.addEventListener('pointercancel', () => { if(drag) drag.t.classList.remove('dragging'); drag = null; });
+  pitch.addEventListener('pointercancel', () => { if(drag && drag.t) drag.t.classList.remove('dragging'); drag = null; });
 }
 function assign(p, ourId){
   const m = M(), prev = p.mk || null; ourId = ourId || null;
