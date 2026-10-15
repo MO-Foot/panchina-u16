@@ -267,7 +267,11 @@ svg.trace circle{fill:none;stroke:#fff;stroke-width:.35;stroke-dasharray:1 .8;op
 .spc.dim{opacity:.5}
 .spc.empty{border-top-color:var(--line)}
 .spl{font-size:.95rem;font-weight:650;color:var(--muted);line-height:1.2}
-.spn{display:flex;flex-wrap:wrap;gap:14px;margin-top:6px}
+.spn{display:flex;flex-wrap:wrap;gap:14px;margin-top:6px;align-items:center}
+.pnb{background:none;border:0;padding:2px 4px;margin:-2px -4px;font:inherit;color:inherit;cursor:pointer;text-align:left;border-radius:8px}
+.pnb:hover,.pnb:active{background:var(--line)}
+.spplus{background:none;border:1.5px dashed var(--line);color:var(--muted,#888);border-radius:999px;width:36px;height:36px;font-size:1.2rem;cursor:pointer;flex:none}
+.spplus.wide{width:auto;padding:0 14px;color:var(--warn);font-style:italic;font-size:.95rem}
 .pn{display:flex;flex-direction:column;align-items:center;min-width:52px}
 .pn b{font-size:3.4rem;line-height:.95;font-weight:700;color:var(--our)}
 .pn small{font-size:.75rem;color:var(--muted);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1217,7 +1221,11 @@ function renderCorner(m){
   const bar = `<div class="ctop">${sideSeg}${sopra}<span style="flex:1"></span><button class="btn ${UI.spEdit?'pri':''}" data-act="spEditT">${UI.spEdit ? '✓ Fine modifica' : '✎ Modifica schema'}</button></div>`;
   return head + bar + (UI.spEdit ? spEditor(m, sch) : spView(m, sch));
 }
-function spCard(label, arr, cls){ return `<div class="spc ${cls||''} ${arr.length?'':'empty'}"><div class="spl">${esc(label)}</div><div class="spn">${arr.map(pn).join('') || '<span class="hint" style="color:var(--warn)">da assegnare</span>'}</div></div>`; }
+function spCard(label, arr, cls, sl){
+  if(!sl) return `<div class="spc ${cls||''} ${arr.length?'':'empty'}"><div class="spl">${esc(label)}</div><div class="spn">${arr.map(pn).join('') || '<span class="hint" style="color:var(--warn)">da assegnare</span>'}</div></div>`;
+  // compito modificabile: tocca un numero per cambiarlo o toglierlo, «+» per aggiungere
+  return `<div class="spc ${cls||''} ${arr.length?'':'empty'}"><div class="spl">${esc(label)}</div><div class="spn">${arr.map(n => `<button class="pnb" data-act="spNum" data-sl="${sl.id}" data-n="${n}" title="Cambia o togli il ${n}">${pn(n)}</button>`).join('')}${arr.length ? `<button class="spplus" data-act="spAdd" data-sl="${sl.id}" aria-label="Aggiungi un giocatore">+</button>` : `<button class="spplus wide" data-act="spAdd" data-sl="${sl.id}">da assegnare · tocca</button>`}</div></div>`;
+}
 function spView(m, sch){
   if(sch.type === 'coff'){
     const used = new Set();
@@ -1226,10 +1234,10 @@ function spView(m, sch){
       if(sl.type === 'r2' || sl.type === 'r3'){
         const need = sl.type === 'r2' ? 2 : 3, act = UI.sopra >= need;
         if(act) a.forEach(n => used.add(n));
-        return spCard(act ? '▶ Rientra ora (loro ' + need + ' sopra)' : sl.label, a, act ? 'key' : 'dim');
+        return spCard(act ? '▶ Rientra ora (loro ' + need + ' sopra)' : sl.label, a, act ? 'key' : 'dim', sl);
       }
       a.forEach(n => used.add(n));
-      return spCard(sl.label, a, sl.id === 'dietro' ? 'key' : '');
+      return spCard(sl.label, a, sl.id === 'dietro' ? 'key' : '', sl);
     }).join('');
     const area = field(m).filter(p => !p.gk && !used.has(p.n)).map(p => p.n).sort((a,b) => a-b);
     return `<div class="spgrid">${cards}${spCard('In area (tutti gli altri)', area)}</div>
@@ -1237,11 +1245,11 @@ function spView(m, sch){
   }
   if(sch.type === 'cdif'){
     const mk = sch.slots.find(sl => sl.type === 'markers'), others = sch.slots.filter(sl => sl !== mk);
-    let html = `<div class="spgrid">${others.map(sl => spCard(sl.label, nums(sch, sl), sl.id === 'palo' ? 'key' : '')).join('')}</div>`;
+    let html = `<div class="spgrid">${others.map(sl => spCard(sl.label, nums(sch, sl), sl.id === 'palo' ? 'key' : '', sl)).join('')}</div>`;
     if(mk){
       const list = nums(sch, mk);
       const rows = list.map(n => { const o = ourByN(n), opp = o && oppOn(m).find(q => q.ck === o.id);
-        return `<div class="mkrow">${pn(n)}<span class="arr">→</span><button class="opb ${opp?'set':''}" data-act="spCk" data-n="${n}">${!o ? 'Il ' + n + ' non è in rosa: tocca per scegliere chi lo sostituisce' : opp ? `<b>${opp.n}</b><span>${[esc(opp.name), (opp.h ? H_LAB[opp.h] : '') + (opp.cm ? ' ' + esc(opp.cm) + ' cm' : ''), esc(opp.role)].map(x => x.trim()).filter(Boolean).join(', ')}</span>` : 'Tocca per scegliere l\'avversario'}</button></div>`; }).join('');
+        return `<div class="mkrow"><button class="pnb" data-act="spNum" data-sl="${mk.id}" data-n="${n}" title="Cambia o togli il ${n}">${pn(n)}</button><span class="arr">→</span><button class="opb ${opp?'set':''}" data-act="spCk" data-n="${n}">${!o ? 'Il ' + n + ' non è in rosa: tocca per scegliere chi lo sostituisce' : opp ? `<b>${opp.n}</b><span>${[esc(opp.name), (opp.h ? H_LAB[opp.h] : '') + (opp.cm ? ' ' + esc(opp.cm) + ' cm' : ''), esc(opp.role)].map(x => x.trim()).filter(Boolean).join(', ')}</span>` : 'Tocca per scegliere l\'avversario'}</button></div>`; }).join('');
       const ids = new Set(list.map(n => { const o = ourByN(n); return o && o.id; }).filter(Boolean));
       const gk = oppGK(m);
       const tallFree = oppOn(m).filter(q => q.h > 0 && !(gk && q.id === gk.id) && !(q.ck && ids.has(q.ck)));
@@ -1251,7 +1259,7 @@ function spView(m, sch){
     }
     return html;
   }
-  return `<div class="spgrid">${sch.slots.map((sl, i) => spCard(sl.label, nums(sch, sl), (sch.type === 'pdif' && i < 3) ? 'key' : '')).join('')}</div>`;
+  return `<div class="spgrid">${sch.slots.map((sl, i) => spCard(sl.label, nums(sch, sl), (sch.type === 'pdif' && i < 3) ? 'key' : '', sl)).join('')}</div>`;
 }
 function spEditor(m, sch){
   return `<div class="card">
@@ -1646,6 +1654,16 @@ const ACT = {
     const list = m.our.filter(p => p.st !== 'out' && !cur.includes(p.n)).sort((a,b) => (rank[a.st] - rank[b.st]) || byN(a,b));
     if(!list.length) return toast('Nessun giocatore disponibile: inseriscili in Pre-partita');
     pickModal(`${sl.label}: aggiungi`, list.map(p => ({label:String(p.n), sub:[p.name, p.st==='tit' ? '' : ST_LAB[p.st]].filter(Boolean).join(' · ')})), i => { setNums(sch, sl, [...cur, list[i].n]); save(); render(); }, '', true);
+  },
+  spNum(el){
+    const m = M(), sch = curSch(m), sl = sch.slots.find(x => x.id === el.dataset.sl), n = +el.dataset.n, cur = nums(sch, sl), o = ourByN(n);
+    const rank = {tit:0, pan:1, usc:2};
+    const list = m.our.filter(p => p.st !== 'out' && !cur.includes(p.n)).sort((a,b) => (rank[a.st] - rank[b.st]) || byN(a,b));
+    const opts = list.map(p => ({label:String(p.n), sub:[p.name, p.st==='tit' ? '' : ST_LAB[p.st]].filter(Boolean).join(' · ')}));
+    opts.push({label:'—', sub:'Togli il ' + n + ' da questo compito'});
+    pickModal(`${sl.label}: al posto del ${n}${o && o.name ? ' (' + o.name + ')' : (o ? '' : ', non in rosa')}…`, opts, i => {
+      setNums(sch, sl, i < list.length ? cur.map(x => x === n ? list[i].n : x) : cur.filter(x => x !== n)); save(); render();
+    }, '', true);
   },
   spRm(el){ const sch = curSch(M()), sl = sch.slots.find(x => x.id === el.dataset.sl); setNums(sch, sl, nums(sch, sl).filter(n => n !== +el.dataset.n)); save(); render(); },
   spSlotNew(){ const sch = curSch(M()); sch.slots.push({id:uid(), label:'Nuovo compito', p: sch.sides ? {dx:[], sx:[]} : {all:[]}}); save(); render(); const ins = document.querySelectorAll('[data-sl]'); const last = ins[ins.length-1]; if(last && last.tagName === 'INPUT'){ last.focus(); last.select(); } },
