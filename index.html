@@ -1151,7 +1151,7 @@ function renderBoard(m){
   return `<div class="bbar">
     <label class="bsel"><span class="sw our"></span>Noi ${fsel('fOur', b.fOur)}</label>
     <label class="bsel"><span class="sw opp"></span>Loro ${fsel('fOpp', b.fOpp)}</label>
-    <button class="btn" data-act="bReset" title="Ricarica giocatori e posizioni dal Campo">⤓ Dal campo</button>
+    <button class="btn ${b.man?'pri':''}" data-act="bReset" title="Riaggancia la lavagna alla situazione del Campo">↻ Aggiorna dal Campo</button>
     <button class="btn ${m.flip?'pri':''}" data-act="flip" title="Gira il campo come lo vedi dalla panchina">⟲ Gira campo</button>
     <span style="flex:1"></span>
     ${tokSizer()}
@@ -1163,7 +1163,7 @@ function renderBoard(m){
   <div class="pitchwrap"><div class="pitch board ${draw?'drawing':''} ${m.flip?'flip':''}" id="board">${PITCH_SVG}
     <svg class="ink" viewBox="0 0 105 68" preserveAspectRatio="none"><defs><marker id="ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ffe14d"/></marker></defs>${b.lines.map(l => `<polyline points="${svgPts(l)}" marker-end="url(#ah)"/>`).join('')}<polyline id="inkNow" points=""/></svg>
     ${toks}<div class="ball" data-b="ball" style="left:${b.ball.x}%;top:${b.ball.y}%"></div></div>
-    <div class="pitchfoot"><span>${draw ? 'Disegna col dito: ogni tratto finisce con una freccia.' : (b.man ? 'Hai spostato pedine a mano: la lavagna non segue più il Campo. «Dal campo» la riallinea.' : 'La lavagna segue il Campo: avversari dove li hai messi, i nostri accanto all\'uomo che marcano. Se sposti una pedina, resta com\'è finché non premi «Dal campo».')}</span></div></div>`;
+    <div class="pitchfoot"><span>${draw ? 'Disegna col dito: ogni tratto finisce con una freccia.' : (b.man ? 'Hai spostato pedine a mano: la lavagna non segue più il Campo. «↻ Aggiorna dal Campo» la riallinea.' : 'La lavagna segue il Campo: avversari dove li hai messi, i nostri accanto all\'uomo che marcano. Se sposti una pedina, resta com\'è finché non premi «↻ Aggiorna dal Campo».')}</span></div></div>`;
 }
 function bindBoard(){
   const el = $('#board'); if(!el) return;
