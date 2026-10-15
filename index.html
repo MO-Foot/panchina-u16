@@ -181,6 +181,12 @@ main{padding:12px;padding-bottom:40px}
 .bcard .mid strong{display:block;font-size:1rem}
 .bcard .arr{font-size:1.8rem;color:var(--muted)}
 
+/* Campo girato (vista dalla panchina dopo il cambio di campo) */
+.pitch.flip{transform:rotate(180deg)}
+.pitch.flip .tok{transform:translate(-50%,-50%) rotate(180deg)}
+.pitch.flip .tok.mine{transform:translate(-50%,-50%) rotate(180deg) scale(1.15)}
+.pitch.flip .ball{transform:translate(-50%,-50%) rotate(180deg)}
+
 /* Misura pedine */
 :root{--t:40px}
 :root[data-tok="s"]{--t:32px} :root[data-tok="l"]{--t:50px}
@@ -757,7 +763,7 @@ function planBar(m){
   return `<div class="planbar"><span class="pl">${ed ? 'Piani da preparare' : 'Sistema avversario'}</span>
     ${plans.map(p => `<button class="plchip ${(ed ? UI.editPlan : m.activePlan) === p.id ? 'on' : ''}" data-act="${ed ? 'planPick' : 'planAct'}" data-id="${p.id}">${esc(p.name)}</button>`).join('')}
     ${ed ? '<button class="plchip add" data-act="planNew">＋ Piano</button>' : (plans.length ? '' : '<span class="hint" style="margin:0">Nessun piano preparato</span>')}
-    <span style="flex:1"></span>${!ed && activePlan(m) ? '<button class="btn" data-act="byNumber" title="Ogni avversario va nella posizione del suo numero">⇅ Posiziona per numero</button>' : ''}${tokSizer()}<button class="btn ${ed ? 'pri' : ''}" data-act="planEditT">${ed ? '✓ Fine preparazione' : '✎ Prepara piani'}</button></div>`;
+    <span style="flex:1"></span>${!ed && activePlan(m) ? '<button class="btn" data-act="byNumber" title="Ogni avversario va nella posizione del suo numero">⇅ Posiziona per numero</button>' : ''}${tokSizer()}<button class="btn ${m.flip ? 'pri' : ''}" data-act="flip" title="Gira il campo come lo vedi dalla panchina">⟲ Gira campo</button><button class="btn ${ed ? 'pri' : ''}" data-act="planEditT">${ed ? '✓ Fine preparazione' : '✎ Prepara piani'}</button></div>`;
 }
 function renderCampo(m){
   if(!Array.isArray(m.plans)) m.plans = [];
@@ -779,8 +785,8 @@ function renderCampo(m){
   const unplaced = plan ? on.filter(p => !ids.has(p.slot)) : [];
   return planBar(m) + `<div class="campo">
     <div class="pitchwrap">
-      <div class="pitch" id="pitch">${PITCH_SVG}${trace ? `<svg class="trace" viewBox="0 0 105 68" preserveAspectRatio="none">${trace}</svg>` : ''}${ghosts}${toks}</div>
-      <div class="pitchfoot"><span>${plan && empty ? `<b>Tocca un <span class="plus">+</span> per inserire il numero (${empty} posizioni vuote)</b>` : '⟵ La nostra porta. Trascina un giocatore per spostarlo, toccalo per selezionarlo.'}</span>
+      <div class="pitch ${m.flip?'flip':''}" id="pitch">${PITCH_SVG}${trace ? `<svg class="trace" viewBox="0 0 105 68" preserveAspectRatio="none">${trace}</svg>` : ''}${ghosts}${toks}</div>
+      <div class="pitchfoot"><span>${plan && empty ? `<b>Tocca un <span class="plus">+</span> per inserire il numero (${empty} posizioni vuote)</b>` : (m.flip ? 'La nostra porta ⟶' : '⟵ La nostra porta') + '. Trascina un giocatore per spostarlo, toccalo per selezionarlo.'}</span>
       <span>${unplaced.length ? `<b style="color:var(--warn)">Da ricollocare: ${unplaced.map(p=>p.n).join(', ')}</b> ` : ''}${unmarked.length ? `<b style="color:var(--warn)">Senza marcatore: ${unmarked.map(p=>p.n).join(', ')}</b>` : (on.length ? '<b style="color:var(--ok)">Tutti marcati</b>' : '')}</span></div>
     </div>
     <aside class="card panel">${UI.sel ? panelSel(m, oppBy(UI.sel)) : panelOverview(m, free)}</aside>
@@ -795,8 +801,8 @@ function renderPlanEdit(m){
   if(UI.selSlot && !plan.slots.some(s => s.id === UI.selSlot)) UI.selSlot = null;
   const toks = plan.slots.map(s => `<div class="tok slot ${s.gk?'gk':''} ${UI.selSlot===s.id?'sel':''}" data-slot="${s.id}" style="left:${s.x}%;top:${s.y}%">${s.short}${s.gk ? '' : mkChip(s.mk != null ? ourByN(s.mk) : null, s.mk)}</div>`).join('');
   return `<div class="campo">
-    <div class="pitchwrap"><div class="pitch" id="pitch">${PITCH_SVG}${toks}</div>
-      <div class="pitchfoot"><span>⟵ La nostra porta. Tocca una posizione per scegliere il marcatore, trascinala per spostarla.</span></div></div>
+    <div class="pitchwrap"><div class="pitch ${m.flip?'flip':''}" id="pitch">${PITCH_SVG}${toks}</div>
+      <div class="pitchfoot"><span>${m.flip ? 'La nostra porta ⟶' : '⟵ La nostra porta'}. Tocca una posizione per scegliere il marcatore, trascinala per spostarla.</span></div></div>
     <aside class="card panel">${UI.selSlot ? slotPanel(m, plan, plan.slots.find(s => s.id === UI.selSlot)) : planPanel(m, plan, copyBtn)}</aside>
   </div>`;
 }
@@ -854,6 +860,7 @@ function panelSel(m, p){
     ${s && Math.hypot(p.x - s.x, p.y - s.y) >= 4 ? `<button class="btn" data-act="resetPos">↺ Riporta nella posizione del piano</button>` : ''}
     ${s ? `<button class="btn" data-act="kpSlot" data-slot="${s.id}">⌨ Cambia il numero in questa posizione</button>` : ''}
     <button class="btn ${p.pb?'on-warn':''}" data-act="togglePb">⚠ ${p.pb ? 'Accoppiamento problematico (tocca per togliere)' : 'Segna accoppiamento problematico'}</button>
+    <button class="btn" data-act="swapPick">⇄ Scambia posizione con…</button>
     <button class="btn" data-act="subOpp">⇄ Sostituzione avversaria (entra un altro n°)</button>
     <button class="btn" data-act="oppNote">✎ Nota su questo giocatore${p.note?': <i>'+esc(p.note)+'</i>':''}</button>
   </div>`;
@@ -874,20 +881,31 @@ function panelOverview(m, free){
   </div>
   ${log.length ? `<h3>Ultimi cambi di marcatura</h3><ul class="log">${log.map(n => `<li><b>${n.min}</b> ${esc(n.text)}</li>`).join('')}</ul>` : ''}`;
 }
+function swapOppPos(a, b, from){
+  if(!a || !b || a === b) return;
+  const ax = from ? from.x : a.x, ay = from ? from.y : a.y;
+  const keep = {x:b.x, y:b.y, slot:b.slot, mk:b.mk, gk:b.gk};
+  Object.assign(b, {x:ax, y:ay, slot:a.slot, mk:a.mk, gk:a.gk});
+  Object.assign(a, keep);
+  if(started(M())) addNote({cat:'Marcature', side:'marc', text:`Scambio posizioni: ${a.n} ↔ ${b.n}${a.mk ? ' (' + a.n + ' marcato da ' + nOur(a.mk) + ')' : ''}`, auto:true});
+  save();
+}
 function bindPitch(){
   const pitch = $('#pitch'); if(!pitch) return;
   let drag = null;
   pitch.addEventListener('pointerdown', e => {
     const t = e.target.closest('.tok'); if(!t) return;
     e.preventDefault(); t.setPointerCapture(e.pointerId);
-    drag = {t, id:t.dataset.tok, slot:t.dataset.slot, ghost:t.classList.contains('ghost'), sx:e.clientX, sy:e.clientY, moved:false};
+    const p0 = t.dataset.tok && oppBy(t.dataset.tok);
+    drag = {t, id:t.dataset.tok, slot:t.dataset.slot, ghost:t.classList.contains('ghost'), sx:e.clientX, sy:e.clientY, moved:false, ox:p0 ? p0.x : null, oy:p0 ? p0.y : null};
   });
   pitch.addEventListener('pointermove', e => {
     if(!drag || drag.ghost) return;
     if(!drag.moved && Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy) < 8) return;
     drag.moved = true; drag.t.classList.add('dragging');
     const r = pitch.getBoundingClientRect();
-    const x = Math.min(97, Math.max(3, (e.clientX - r.left)/r.width*100)), y = Math.min(95, Math.max(5, (e.clientY - r.top)/r.height*100));
+    let x = Math.min(97, Math.max(3, (e.clientX - r.left)/r.width*100)), y = Math.min(95, Math.max(5, (e.clientY - r.top)/r.height*100));
+    if(M().flip){ x = 100 - x; y = 100 - y; }
     drag.t.style.left = x + '%'; drag.t.style.top = y + '%'; drag.x = x; drag.y = y;
   });
   const end = () => {
@@ -901,7 +919,13 @@ function bindPitch(){
       return;
     }
     const p = oppBy(d.id);
-    if(d.moved && p){ p.x = +d.x.toFixed(1); p.y = +d.y.toFixed(1); save(); d.t.classList.remove('dragging'); if(activePlan(M())) render(); }
+    if(d.moved && p){
+      d.t.classList.remove('dragging');
+      const r = pitch.getBoundingClientRect(), tpx = d.t.offsetWidth || 40;
+      const target = oppOn(M()).filter(q => q !== p).map(q => ({q, dist:Math.hypot((q.x - d.x)/100*r.width, (q.y - d.y)/100*r.height)})).filter(o => o.dist < tpx*0.8).sort((a, b) => a.dist - b.dist)[0];
+      if(target){ swapOppPos(p, target.q, {x:d.ox, y:d.oy}); render(); toast(`Scambiati ${p.n} e ${target.q.n}`); return; }
+      p.x = +d.x.toFixed(1); p.y = +d.y.toFixed(1); save(); if(activePlan(M())) render();
+    }
     else if(p){ UI.sel = UI.sel === p.id ? null : p.id; render(); }
   };
   pitch.addEventListener('pointerup', end);
@@ -1099,6 +1123,7 @@ function renderBoard(m){
     <label class="bsel"><span class="sw our"></span>Noi ${fsel('fOur', b.fOur)}</label>
     <label class="bsel"><span class="sw opp"></span>Loro ${fsel('fOpp', b.fOpp)}</label>
     <button class="btn" data-act="bReset">Ripristina</button>
+    <button class="btn ${m.flip?'pri':''}" data-act="flip" title="Gira il campo come lo vedi dalla panchina">⟲ Gira campo</button>
     <span style="flex:1"></span>
     ${tokSizer()}
     <div class="seg"><button class="${draw?'':'on'}" data-act="bMode" data-v="move">✋ Muovi</button><button class="${draw?'on':''}" data-act="bMode" data-v="draw">✎ Disegna</button></div>
@@ -1106,7 +1131,7 @@ function renderBoard(m){
     <button class="btn" data-act="bClear" ${b.lines.length?'':'disabled'}>Cancella</button>
     <a class="btn" href="https://claude.ai/artifact/ExqoXdVaA2wf1fyurU9akb" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none" title="Apri la lavagna condivisa con la tribuna">Tribuna ↗</a>
   </div>
-  <div class="pitchwrap"><div class="pitch board ${draw?'drawing':''}" id="board">${PITCH_SVG}
+  <div class="pitchwrap"><div class="pitch board ${draw?'drawing':''} ${m.flip?'flip':''}" id="board">${PITCH_SVG}
     <svg class="ink" viewBox="0 0 105 68" preserveAspectRatio="none"><defs><marker id="ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#ffe14d"/></marker></defs>${b.lines.map(l => `<polyline points="${svgPts(l)}" marker-end="url(#ah)"/>`).join('')}<polyline id="inkNow" points=""/></svg>
     ${toks}<div class="ball" data-b="ball" style="left:${b.ball.x}%;top:${b.ball.y}%"></div></div>
     <div class="pitchfoot"><span>${draw ? 'Disegna col dito: ogni tratto finisce con una freccia.' : 'Trascina giocatori e pallone. I numeri vengono dalla partita (titolari e avversari in campo), altrimenti 1-11.'}</span></div></div>`;
@@ -1114,7 +1139,7 @@ function renderBoard(m){
 function bindBoard(){
   const el = $('#board'); if(!el) return;
   let d = null;
-  const pos = e => { const r = el.getBoundingClientRect(); return [Math.min(99, Math.max(1, (e.clientX - r.left)/r.width*100)), Math.min(99, Math.max(1, (e.clientY - r.top)/r.height*100))]; };
+  const pos = e => { const r = el.getBoundingClientRect(); let x = Math.min(99, Math.max(1, (e.clientX - r.left)/r.width*100)), y = Math.min(99, Math.max(1, (e.clientY - r.top)/r.height*100)); if(M().flip){ x = 100 - x; y = 100 - y; } return [x, y]; };
   el.addEventListener('pointerdown', e => {
     e.preventDefault(); el.setPointerCapture(e.pointerId);
     if(UI.bMode === 'draw'){ d = {draw:true, pts:[pos(e)]}; return; }
@@ -1384,7 +1409,7 @@ const ACT = {
       {label:'2° tempo', sub:'azzera il cronometro', cls:m.clock.half===2?'cur':''}
     ], i => { const c = m.clock;
       if(i === 0){ c.half = 1; }
-      else if(c.half !== 2){ c.half = 2; c.el = 0; c.run = false; c.t0 = null; UI.intHalf = 2; toast('2° tempo: premi il cronometro al fischio d\'inizio'); }
+      else if(c.half !== 2){ c.half = 2; c.el = 0; c.run = false; c.t0 = null; UI.intHalf = 2; m.flip = !m.flip; toast('2° tempo: campo girato. Premi il cronometro al fischio d\'inizio'); }
       save(); render(); });
   },
   addOur(){ addPlayer('our'); }, addOpp(){ addPlayer('opp'); },
@@ -1512,6 +1537,12 @@ const ACT = {
     const n = placeByNumber(); if(MC) closeModal(); render();
     toast(n ? `${n} ${n === 1 ? 'giocatore posizionato' : 'giocatori posizionati'} per numero: correggi chi ha un numero fuori standard` : 'Tutti i numeri standard sono già al loro posto');
   },
+  swapPick(){
+    const m = M(), p = oppBy(UI.sel); if(!p) return;
+    const list = oppOn(m).filter(q => q !== p).sort(byN);
+    pickModal(`Scambia il ${p.n} con…`, list.map(q => ({label:String(q.n), sub:q.mk ? 'marcato da ' + nOur(q.mk) : (q.name || '')})), i => { const q = list[i]; swapOppPos(p, q); UI.sel = p.id; render(); toast(`Scambiati ${p.n} e ${q.n}`); }, '', true);
+  },
+  flip(){ const m = M(); m.flip = !m.flip; save(); render(); toast(m.flip ? 'Campo girato: la nostra porta è a destra' : 'Campo girato: la nostra porta è a sinistra'); },
   kpSlot(el){ openKeypad(el.dataset.slot); },
   kpD(el){ if(UI.kp.length >= 2) UI.kp = ''; UI.kp += el.dataset.d; $('#kpD').textContent = UI.kp; },
   kpBack(){ UI.kp = UI.kp.slice(0, -1); $('#kpD').innerHTML = UI.kp || '&nbsp;'; },
