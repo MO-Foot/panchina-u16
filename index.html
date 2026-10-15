@@ -453,12 +453,18 @@ function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(
 let S = load() || {v:1, squad:[], matches:{}, cur:null, view:'pre', theme:'rosso'};
 if(S.theme !== 'rosso' && S.theme !== 'blu') S.theme = S.theme === 'dark' ? 'blu' : 'rosso';
 let saveTimer = null;
-function save(now){
+function save(now, opt){
+  if(!(opt && opt.pref)){ S.dirty = true; const cm = S.cur && S.matches[S.cur]; if(cm) cm.mod = Date.now(); if(typeof scheduleSync === 'function') scheduleSync(); }
   clearTimeout(saveTimer);
   const f = () => { try{ localStorage.setItem(LS, JSON.stringify(S)); storageOK = true; }catch(e){ storageOK = false; } updSave(); };
   if(now) f(); else saveTimer = setTimeout(f, 250);
 }
-function updSave(){ const el = $('#saveSt'); el.textContent = storageOK ? 'salvato' : 'NON salvato – esporta!'; el.classList.toggle('bad', !storageOK); }
+function updSave(){
+  const el = $('#saveSt'); if(!el) return;
+  let tx = storageOK ? 'salvato' : 'NON salvato – esporta!';
+  if(storageOK && typeof dbxOn === 'function' && dbxOn()){ tx = SYNC.state === 'sync' ? 'Dropbox…' : SYNC.state === 'err' ? 'Dropbox: errore' : (S.dirty || SYNC.state === 'offline') ? 'salvato, da inviare' : 'Dropbox ✓'; }
+  el.textContent = tx; el.classList.toggle('bad', !storageOK || (typeof SYNC !== 'undefined' && SYNC.state === 'err'));
+}
 
 const UI = {bMode:'move', planEdit:false, editPlan:null, selSlot:null, kp:'', sel:null, cSort:false, pol:0, intHalf:1, confirmDel:null, spTab:'cdif', spEdit:false, side:'dx', sopra:1};
 
@@ -558,6 +564,7 @@ function render(){
   $('#main').innerHTML = V(m);
   if(S.view === 'campo') bindPitch();
   if(S.view === 'board') bindBoard();
+  const dl = $('#dbxLink'); if(dl) dbxAuthUrl().then(u => { dl.href = u; }).catch(() => {});
   tick(); updSave();
 }
 
@@ -1290,6 +1297,7 @@ function renderArch(m){
       <p class="hint">I dati restano salvati su questo tablet. Dopo ogni partita esporta il file e mettilo in Dropbox: è la tua copia di sicurezza.</p>
       <p class="hint">Stato salvataggio: <b>${storageOK ? 'attivo su questo tablet' : 'NON disponibile: esporta prima di chiudere la pagina'}</b>.</p>
     </div>
+    <div class="card"><h2>Dropbox</h2>${dbxCardHtml()}</div>
     <div class="card"><h2>Importa / backup</h2>
       <label class="fld"><span>Importa un file di partita o un backup (.json)</span><input type="file" accept=".json,application/json" id="impFile"></label>
       <div class="btnrow"><button class="btn" data-act="exportAll">Esporta backup completo</button></div>
@@ -1329,7 +1337,7 @@ function download(name, obj){
 }
 const slug = s => (s||'partita').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') || 'partita';
 function importData(obj){
-  let n = 0;
+  let n = 0; S.metaMod = Date.now();
   const addM = mm => { if(!mm || !Array.isArray(mm.their) || !Array.isArray(mm.our)) return; if(S.matches[mm.id] && S.matches[mm.id] !== mm) mm.id = mm.id + '-' + uid().slice(0,3); mm.clock = Object.assign({half:1,run:false,t0:null,el:0}, mm.clock, {run:false}); mm.msg = mm.msg || {1:['','',''],2:['','','']}; mm.notes = mm.notes || []; if(!Array.isArray(mm.sp)) mm.sp = clone(S.spTpl || DEF_SP); S.matches[mm.id] = mm; n++; };
   if(obj && obj.type === 'match') addM(obj.match);
   else if(obj && obj.type === 'backup'){ Object.values(obj.data.matches || {}).forEach(addM); if(!S.squad.length && obj.data.squad) S.squad = obj.data.squad; if(!S.spTpl && obj.data.spTpl) S.spTpl = obj.data.spTpl; }
@@ -1365,8 +1373,8 @@ function editPlayerModal(side, id){
 }
 
 const ACT = {
-  view(el){ S.view = el.dataset.v; save(); render(); window.scrollTo(0,0); },
-  theme(){ S.theme = S.theme === 'rosso' ? 'blu' : 'rosso'; save(); render(); },
+  view(el){ S.view = el.dataset.v; save(false, {pref:true}); render(); window.scrollTo(0,0); },
+  theme(){ S.theme = S.theme === 'rosso' ? 'blu' : 'rosso'; save(false, {pref:true}); render(); },
   clock(){ const c = M().clock; if(c.run){ c.el += (Date.now()-c.t0)/1000; c.run = false; c.t0 = null; } else { c.run = true; c.t0 = Date.now(); keepAwake(); } save(); tick(); },
   adj(el){ const c = M().clock, d = +el.dataset.d; if(c.run){ c.el += (Date.now()-c.t0)/1000; c.t0 = Date.now(); } c.el = Math.max(0, c.el + d); save(); tick(); },
   half(){
@@ -1420,11 +1428,11 @@ const ACT = {
     });
     save(); closeModal(); render(); toast(added + ' giocatori aggiunti');
   },
-  saveSquad(){ S.squad = [...M().our].sort(byN).map(p => ({n:p.n, name:p.name, fname:p.fname || '', gk:p.gk})); save(); render(); toast('Rosa predefinita salvata ('+S.squad.length+')'); },
+  saveSquad(){ S.metaMod = Date.now(); S.squad = [...M().our].sort(byN).map(p => ({n:p.n, name:p.name, fname:p.fname || '', gk:p.gk})); save(); render(); toast('Rosa predefinita salvata ('+S.squad.length+')'); },
   loadSquad(){ const m = M(); let k = 0; S.squad.forEach(s => { if(!m.our.some(p => p.n === s.n)){ m.our.push({id:uid(), n:s.n, name:s.name, fname:s.fname || '', gk:!!s.gk, st:'pan'}); k++; } }); save(); render(); toast(k + ' giocatori caricati: segna i titolari'); },
   layout(){ const m = M(); layout(m); save(); S.view = 'campo'; render(); toast('Disposti col '+m.formation+': trascina per sistemare'); },
 
-  tok(el){ const o = ['s','m','l'], i = Math.max(0, Math.min(2, o.indexOf(S.tok || 'm') + +el.dataset.d)); S.tok = o[i]; save(); render(); },
+  tok(el){ const o = ['s','m','l'], i = Math.max(0, Math.min(2, o.indexOf(S.tok || 'm') + +el.dataset.d)); S.tok = o[i]; save(false, {pref:true}); render(); },
   kitOpen(){ kitModal(); },
   kitPick(el){ setKit(kitFromRow(KITS[+el.dataset.i]), false); closeModal(); render(); },
   kitBasic(el){ const r = BASIC[+el.dataset.i]; setKit({name:r[0], c1:r[1], c2:r[1], ink:r[2], pat:''}, false); closeModal(); render(); },
@@ -1568,7 +1576,7 @@ const ACT = {
   spSchDel(){ const m = M(), sch = curSch(m); confirmModal('Eliminare lo schema?', `«${sch.name}» verrà tolto da questa partita.`, 'Elimina', () => { m.sp = m.sp.filter(x => x !== sch); UI.spTab = m.sp[0] ? m.sp[0].id : 'alt'; UI.spEdit = false; save(); render(); }); },
   spNew(){ openModal(`<h2>Nuovo schema</h2><label class="fld"><span>Nome</span><input id="nsName" autofocus placeholder="es. Punizione offensiva"></label><label class="chk"><input type="checkbox" id="nsSides"> Compiti diversi da destra e da sinistra</label><div class="btnrow"><button class="btn" data-act="mClose">Annulla</button><button class="btn pri" data-act="spNewOk">Crea</button></div>`); },
   spNewOk(){ const name = $('#nsName').value.trim(); if(!name) return toast('Dai un nome allo schema'); const sides = $('#nsSides').checked; const sch = {id:uid(), name, type:'custom', sides, slots:[{id:uid(), label:'Nuovo compito', p: sides ? {dx:[], sx:[]} : {all:[]}}]}; M().sp.push(sch); UI.spTab = sch.id; UI.spEdit = true; save(); closeModal(); render(); },
-  spSaveTpl(){ S.spTpl = clone(M().sp); save(true); toast('Modello salvato: le prossime partite partono da questi schemi'); },
+  spSaveTpl(){ S.metaMod = Date.now(); S.spTpl = clone(M().sp); save(true); toast('Modello salvato: le prossime partite partono da questi schemi'); },
   spLoadTpl(){ confirmModal('Ripristinare dal modello?', 'Tutti gli schemi di questa partita tornano come nel modello salvato.', 'Ripristina', () => { M().sp = clone(S.spTpl || DEF_SP); save(); render(); }); },
   cSort(){ UI.cSort = !UI.cSort; render(); },
   setH(el){ const p = oppBy(el.dataset.id); p.h = +el.dataset.h; save(); render(); },
@@ -1604,9 +1612,19 @@ const ACT = {
   exportAll(){ download(`panchina-backup_${todayISO()}.json`, {type:'backup', app:'panchina-u16', v:1, exported:new Date().toISOString(), data:{squad:S.squad, spTpl:S.spTpl || null, matches:S.matches}}); },
   print(){ $('#report').innerHTML = buildReport(M()); window.print(); },
   newMatch(){ confirmModal('Nuova partita', 'La partita attuale resta salvata in archivio. La nuova partita parte con la tua rosa predefinita.', 'Crea', () => { const cur = M(); if(cur.clock.run){ cur.clock.el += (Date.now()-cur.clock.t0)/1000; cur.clock.run = false; } newMatch(); UI.sel = null; UI.intHalf = 1; S.view = 'pre'; save(true); render(); }); },
-  openMatch(el){ const cur = M(); if(cur.clock.run){ cur.clock.el += (Date.now()-cur.clock.t0)/1000; cur.clock.run = false; } S.cur = el.dataset.id; UI.sel = null; save(true); render(); toast('Partita aperta'); },
-  delMatch(el){ const id = el.dataset.id, x = S.matches[id]; confirmModal('Eliminare la partita?', `${x.opp||'Senza avversario'} del ${fmtDate(x.date)}. Se non l'hai esportata, i dati andranno persi.`, 'Elimina', () => { delete S.matches[id]; if(S.cur === id) S.cur = Object.keys(S.matches)[0] || null; M(); save(true); render(); }); },
+  openMatch(el){ const cur = M(); if(cur.clock.run){ cur.clock.el += (Date.now()-cur.clock.t0)/1000; cur.clock.run = false; cur.mod = Date.now(); S.dirty = true; scheduleSync(); } S.cur = el.dataset.id; UI.sel = null; save(true, {pref:true}); render(); toast('Partita aperta'); },
+  delMatch(el){ const id = el.dataset.id, x = S.matches[id]; confirmModal('Eliminare la partita?', `${x.opp||'Senza avversario'} del ${fmtDate(x.date)}. Se non l'hai esportata, i dati andranno persi.`, 'Elimina', () => { delete S.matches[id]; S.deleted = S.deleted || {}; S.deleted[id] = Date.now(); if(S.cur === id) S.cur = Object.keys(S.matches)[0] || null; M(); save(true); render(); }); },
 
+  dbxSetKey(){ const k = ($('#dbxKeyIn').value || '').trim(); if(!/^[a-z0-9]{8,32}$/i.test(k)) return toast('App key non valida: copiala da Dropbox, scheda Settings'); DBX = {key:k}; dbxSave(); render(); },
+  dbxResetKey(){ DBX = {}; dbxSave(); render(); },
+  async dbxConnect(){
+    const c = ($('#dbxCodeIn').value || '').trim(); if(!c) return toast('Incolla il codice che ti ha dato Dropbox');
+    if(!DBX.verifier) return toast('Apri prima il link di Dropbox (punto 1)');
+    try{ await dbxFinish(c); toast('Dropbox collegato: sincronizzo…'); render(); await syncNow(true); render(); }
+    catch(e){ toast('Collegamento non riuscito: ' + (e.message || e) + '. Riapri il link e usa un codice nuovo.'); delete DBX.verifier; delete DBX.challenge; dbxSave(); render(); }
+  },
+  dbxSync(){ syncNow(true).then(render); },
+  dbxLogout(){ confirmModal('Scollegare Dropbox?', 'I dati restano su questo dispositivo e su Dropbox; smette solo la sincronizzazione su questo dispositivo.', 'Scollega', () => { const k = DBX.key; DBX = k ? {key:k} : {}; dbxSave(); setSync(''); render(); }); },
   mClose(){ closeModal(); },
   mOk(){ const f = MC.ok; closeModal(); f && f(); },
   mPick(el){ const {options, cb} = MC, i = +el.dataset.i; if(options[i]){ closeModal(); cb(i); } }
@@ -1644,13 +1662,142 @@ document.addEventListener('keydown', e => {
   if(MC && MC.slotId && !/INPUT|TEXTAREA/.test(e.target.tagName)){ if(/^[0-9]$/.test(e.key)){ ACT.kpD({dataset:{d:e.key}}); } else if(e.key === 'Enter'){ e.preventDefault(); ACT.kpOk(); } else if(e.key === 'Backspace'){ ACT.kpBack(); } }
 });
 
+/* ============ Sincronizzazione Dropbox ============
+   Il file JSON sta nella cartella dell'app su Dropbox (Applicazioni/<nome app>/panchina-db.json).
+   Collegamento OAuth "PKCE" con codice da copiare: nessun segreto nella pagina, nessun rientro automatico. */
+const DBX_APP_KEY = '';            /* App key dell'app Dropbox (si può inserire anche dall'Archivio) */
+const DBX_PATH = '/panchina-db.json';
+const DBXK = 'panchinaU16.dbx';
+let DBX = (() => { try{ return JSON.parse(localStorage.getItem(DBXK)) || {}; }catch(e){ return {}; } })();
+function dbxSave(){ try{ localStorage.setItem(DBXK, JSON.stringify(DBX)); }catch(e){} }
+const dbxKey = () => DBX_APP_KEY || DBX.key || '';
+const dbxOn = () => !!(dbxKey() && DBX.refresh);
+const SYNC = {state:'', msg:'', busy:false, timer:null};
+function setSync(state, msg){ SYNC.state = state; SYNC.msg = msg || ''; updSave(); const c = $('#dbxStatus'); if(c) c.innerHTML = dbxStatusText(); }
+function dbxStatusText(){
+  if(!dbxOn()) return 'Non collegato';
+  const t = DBX.lastSync ? new Date(DBX.lastSync).toLocaleTimeString('it-CH', {hour:'2-digit', minute:'2-digit'}) + ' del ' + new Date(DBX.lastSync).toLocaleDateString('it-CH') : 'mai';
+  if(SYNC.state === 'sync') return 'Sincronizzazione in corso…';
+  if(SYNC.state === 'offline') return `Senza rete: le modifiche partono appena torna internet. Ultima sincronizzazione: ${t}`;
+  if(SYNC.state === 'err') return `Errore: ${esc(SYNC.msg)}. Ultima sincronizzazione riuscita: ${t}`;
+  return `Collegato. Ultima sincronizzazione: ${t}${S.dirty ? ' (modifiche da inviare)' : ''}`;
+}
+const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+async function dbxAuthUrl(){
+  if(!DBX.verifier || !DBX.challenge){
+    DBX.verifier = b64url(crypto.getRandomValues(new Uint8Array(48)));
+    DBX.challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(DBX.verifier)));
+    dbxSave();
+  }
+  return `https://www.dropbox.com/oauth2/authorize?client_id=${encodeURIComponent(dbxKey())}&response_type=code&code_challenge=${DBX.challenge}&code_challenge_method=S256&token_access_type=offline`;
+}
+async function dbxToken(params){
+  const r = await fetch('https://api.dropboxapi.com/oauth2/token', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:new URLSearchParams(params)});
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error(j.error_description || j.error || ('risposta ' + r.status));
+  return j;
+}
+async function dbxFinish(code){
+  const j = await dbxToken({code:code.trim(), grant_type:'authorization_code', code_verifier:DBX.verifier, client_id:dbxKey()});
+  Object.assign(DBX, {refresh:j.refresh_token, access:j.access_token, exp:Date.now() + ((j.expires_in || 14400) - 60)*1000, rev:null, lastSync:0});
+  delete DBX.verifier; delete DBX.challenge; dbxSave();
+}
+async function dbxAccess(){
+  if(DBX.access && Date.now() < (DBX.exp || 0)) return DBX.access;
+  const j = await dbxToken({grant_type:'refresh_token', refresh_token:DBX.refresh, client_id:dbxKey()});
+  DBX.access = j.access_token; DBX.exp = Date.now() + ((j.expires_in || 14400) - 60)*1000; dbxSave();
+  return DBX.access;
+}
+async function dbxDownload(){
+  const t = await dbxAccess();
+  const r = await fetch('https://content.dropboxapi.com/2/files/download', {method:'POST', headers:{Authorization:'Bearer ' + t, 'Dropbox-API-Arg':JSON.stringify({path:DBX_PATH})}});
+  if(r.status === 409){ const tx = await r.text(); if(/not_found/.test(tx)) return null; throw new Error('Dropbox ' + tx.slice(0, 100)); }
+  if(r.status === 401){ DBX.access = null; dbxSave(); throw new Error('accesso scaduto, riprova'); }
+  if(!r.ok) throw new Error('download non riuscito (' + r.status + ')');
+  const meta = JSON.parse(r.headers.get('dropbox-api-result') || '{}');
+  const data = JSON.parse(await r.text());
+  if(!data || data.app !== 'panchina-u16') throw new Error('il file su Dropbox non è un database di Panchina');
+  return {rev:meta.rev, data};
+}
+async function dbxUpload(data, rev){
+  const t = await dbxAccess();
+  const mode = rev ? {'.tag':'update', update:rev} : {'.tag':'add'};
+  const r = await fetch('https://content.dropboxapi.com/2/files/upload', {method:'POST', headers:{Authorization:'Bearer ' + t, 'Content-Type':'application/octet-stream', 'Dropbox-API-Arg':JSON.stringify({path:DBX_PATH, mode, autorename:false, mute:true})}, body:JSON.stringify(data)});
+  if(r.status === 409) return {conflict:true};
+  if(r.status === 401){ DBX.access = null; dbxSave(); throw new Error('accesso scaduto, riprova'); }
+  if(!r.ok) throw new Error('invio non riuscito (' + r.status + ')');
+  return {rev:(await r.json()).rev};
+}
+const isEmptyMatch = m => m && !m.opp && !(m.their || []).length && !(m.notes || []).length && !(m.plans || []).length && !(m.our || []).some(p => p.st === 'tit');
+function syncPayload(){ return {app:'panchina-u16', v:1, savedAt:Date.now(), metaMod:S.metaMod || 0, squad:S.squad, spTpl:S.spTpl || null, matches:S.matches, deleted:S.deleted || {}}; }
+function mergeRemote(r){
+  const conflicts = [], since = DBX.lastSync || 0, del = {...(r.deleted || {})};
+  Object.entries(S.deleted || {}).forEach(([k, v]) => { if(!del[k] || del[k] < v) del[k] = v; });
+  const rm = r.matches || {}, remoteHasData = Object.values(rm).some(x => !isEmptyMatch(x));
+  const out = {};
+  new Set([...Object.keys(S.matches), ...Object.keys(rm)]).forEach(id => {
+    if(del[id]) return;
+    const l = S.matches[id], x = rm[id];
+    if(!x){ if(!(remoteHasData && isEmptyMatch(l) && id !== S.cur)) out[id] = l; return; }
+    if(!l){ out[id] = x; return; }
+    const lm = l.mod || l.created || 0, xm = x.mod || x.created || 0;
+    if(lm > since && xm > since && lm !== xm) conflicts.push(l.opp || x.opp || 'senza avversario');
+    out[id] = xm > lm ? x : l;
+  });
+  if(remoteHasData && S.cur && isEmptyMatch(out[S.cur]) && Object.keys(out).length > 1){ del[S.cur] = Date.now(); delete out[S.cur]; }
+  S.matches = out; S.deleted = del;
+  if((r.metaMod || 0) > (S.metaMod || 0)){ S.squad = r.squad || []; S.spTpl = r.spTpl || null; S.metaMod = r.metaMod; }
+  if(!S.matches[S.cur]){ const list = Object.values(S.matches).sort((a, b) => (b.mod || b.created || 0) - (a.mod || a.created || 0)); S.cur = list[0] ? list[0].id : null; }
+  return conflicts;
+}
+async function syncNow(manual){
+  if(!dbxOn() || SYNC.busy) return;
+  if(!navigator.onLine){ setSync('offline'); if(manual) toast('Senza rete: sincronizzo appena torna internet'); return; }
+  SYNC.busy = true; setSync('sync');
+  try{
+    for(let attempt = 0; attempt < 3; attempt++){
+      const remote = await dbxDownload();
+      let conflicts = [], changed = false;
+      if(remote && remote.rev !== DBX.rev){ conflicts = mergeRemote(remote.data); changed = true; }
+      if(!remote || S.dirty){
+        const up = await dbxUpload(syncPayload(), remote ? remote.rev : null);
+        if(up.conflict) continue;
+        DBX.rev = up.rev;
+      } else DBX.rev = remote.rev;
+      S.dirty = false; DBX.lastSync = Date.now(); dbxSave(); save(true, {pref:true});
+      if(changed){ M(); render(); }
+      setSync('ok');
+      if(conflicts.length) toast(`Modificata su due dispositivi: ${conflicts.join(', ')}. Tenuta la versione più recente.`);
+      else if(manual) toast(changed ? 'Sincronizzato: dati aggiornati da Dropbox' : 'Sincronizzato');
+      return;
+    }
+    throw new Error('troppe modifiche contemporanee, riprova');
+  }catch(e){ setSync('err', e.message || String(e)); if(manual) toast('Sincronizzazione non riuscita: ' + (e.message || e)); }
+  finally{ SYNC.busy = false; }
+}
+function scheduleSync(){ if(!dbxOn()) return; clearTimeout(SYNC.timer); SYNC.timer = setTimeout(() => syncNow(false), 4000); }
+window.addEventListener('online', () => syncNow(false));
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') syncNow(false); });
+function dbxCardHtml(){
+  if(!dbxKey()) return `<p class="hint" style="margin-top:0">Per sincronizzare con Dropbox serve una piccola app Dropbox, una volta sola. Incolla qui la sua <b>App key</b>.</p>
+    <div class="addrow" style="grid-template-columns:1fr auto"><input id="dbxKeyIn" placeholder="App key (es. a1b2c3d4e5f6g7h)" autocomplete="off"><button class="btn pri" data-act="dbxSetKey">Salva</button></div>`;
+  if(!DBX.refresh) return `<p class="hint" style="margin-top:0">Collega questo dispositivo, una volta sola:</p>
+    <div class="btnrow" style="margin-top:0"><a class="btn pri" id="dbxLink" href="#" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">1. Apri Dropbox e consenti l'accesso ↗</a></div>
+    <p class="hint">Dropbox ti mostra un codice: copialo, torna qui e incollalo.</p>
+    <div class="addrow" style="grid-template-columns:1fr auto"><input id="dbxCodeIn" placeholder="2. Incolla il codice" autocomplete="off"><button class="btn pri" data-act="dbxConnect">Collega</button></div>
+    ${DBX_APP_KEY ? '' : '<p class="hint"><button class="btn" data-act="dbxResetKey" style="min-height:38px">Cambia App key</button></p>'}`;
+  return `<p id="dbxStatus" style="margin-top:0">${dbxStatusText()}</p>
+    <p class="hint">Il file è in Dropbox, nella cartella Applicazioni dell'app: <b>panchina-db.json</b>. Sincronizza da solo dopo ogni modifica, all'apertura e quando torna la rete.</p>
+    <div class="btnrow"><button class="btn pri" data-act="dbxSync">Sincronizza ora</button><button class="btn" data-act="dbxLogout">Scollega questo dispositivo</button></div>`;
+}
+
 /* ============ Avvio ============ */
 M();
 if(M().clock.run && !M().clock.t0) M().clock.run = false;
 render();
+setTimeout(() => syncNow(false), 800);
 if(!storageOK) toast('Salvataggio non disponibile: esporta la partita prima di chiudere');
 
-/* Installabile: copia offline quando la pagina arriva da un indirizzo web */
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){ window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); }); }
 try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
 </script>
