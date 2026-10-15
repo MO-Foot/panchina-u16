@@ -497,7 +497,8 @@ const oppBy = id => M().their.find(p => p.id === id);
 const field = m => m.our.filter(p => p.st === 'tit');
 const markers = m => field(m).filter(p => !p.gk).sort(byN);
 const oppOn = m => m.their.filter(p => p.on);
-const oppGK = m => { const on = oppOn(m); return on.find(p => p.gk) || null; };
+/* Portiere avversario: chi è segnato come portiere, altrimenti chi sta nella sua area piccola */
+const oppGK = m => { const on = oppOn(m); return on.find(p => p.gk) || on.find(p => p.x != null && p.x >= 90 && p.y >= 30 && p.y <= 70) || null; };
 
 /* ============ Cronometro ============ */
 function elapsed(m){ const c = m.clock; return c.el + (c.run ? (Date.now() - c.t0)/1000 : 0); }
@@ -860,6 +861,7 @@ function panelSel(m, p){
     ${s && Math.hypot(p.x - s.x, p.y - s.y) >= 4 ? `<button class="btn" data-act="resetPos">↺ Riporta nella posizione del piano</button>` : ''}
     ${s ? `<button class="btn" data-act="kpSlot" data-slot="${s.id}">⌨ Cambia il numero in questa posizione</button>` : ''}
     <button class="btn ${p.pb?'on-warn':''}" data-act="togglePb">⚠ ${p.pb ? 'Accoppiamento problematico (tocca per togliere)' : 'Segna accoppiamento problematico'}</button>
+    <button class="btn ${oppGK(m) === p ? 'on-warn' : ''}" data-act="gkToggle">🧤 ${oppGK(m) === p ? 'Portiere (tocca per togliere)' : 'Segna come portiere'}</button>
     <button class="btn" data-act="swapPick">⇄ Scambia posizione con…</button>
     <button class="btn" data-act="subOpp">⇄ Sostituzione avversaria (entra un altro n°)</button>
     <button class="btn" data-act="oppNote">✎ Nota su questo giocatore${p.note?': <i>'+esc(p.note)+'</i>':''}</button>
@@ -1536,6 +1538,13 @@ const ACT = {
   byNumber(){
     const n = placeByNumber(); if(MC) closeModal(); render();
     toast(n ? `${n} ${n === 1 ? 'giocatore posizionato' : 'giocatori posizionati'} per numero: correggi chi ha un numero fuori standard` : 'Tutti i numeri standard sono già al loro posto');
+  },
+  gkToggle(){
+    const m = M(), p = oppBy(UI.sel); if(!p) return;
+    const was = oppGK(m) === p;
+    m.their.forEach(q => { q.gk = false; });
+    if(!was){ p.gk = true; p.mk = null; } else { p.x = Math.min(p.x, 86); }
+    save(); render(); toast(was ? `Il ${p.n} non è più il portiere` : `Il ${p.n} è il portiere: senza marcatore`);
   },
   swapPick(){
     const m = M(), p = oppBy(UI.sel); if(!p) return;
