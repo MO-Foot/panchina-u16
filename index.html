@@ -124,8 +124,8 @@ main{padding:12px;padding-bottom:40px}
 .tok.sel{outline:4px solid #ffe14d;outline-offset:2px;z-index:5}
 .tok.pb{border-color:var(--warn);box-shadow:0 0 0 4px var(--warn),0 2px 6px rgba(0,0,0,.35)}
 .tok .mk{position:absolute;bottom:calc(var(--t)*-.3);left:50%;transform:translateX(-50%);min-width:calc(var(--t)*.6);height:calc(var(--t)*.52);padding:0 4px;border-radius:7px;background:var(--our);color:var(--our-ink);border:2px solid #fff;font-size:calc(var(--t)*.4);display:grid;place-items:center;line-height:1}
-.tok .mk.wn{display:flex;align-items:center;gap:4px;height:auto;padding:2px 7px 2px 5px;white-space:nowrap;bottom:auto;top:calc(100% - 3px)}
-.tok .mk i{font-style:normal;font-family:var(--body);font-weight:650;font-size:max(13px,calc(var(--t)*.34));max-width:110px;overflow:hidden;text-overflow:ellipsis;line-height:1.15}
+.tok .mk.wn{display:flex;align-items:center;gap:5px;height:auto;padding:3px 8px 3px 6px;white-space:nowrap;bottom:auto;top:calc(100% - 3px);font-size:max(20px,calc(var(--t)*.52))}
+.tok .mk i{font-style:normal;font-family:var(--num);font-weight:700;letter-spacing:.01em;font-size:max(20px,calc(var(--t)*.52));max-width:160px;overflow:hidden;text-overflow:ellipsis;line-height:1.15}
 .tok .mk.none{background:var(--warn);color:#fff}
 .tok .pbm{position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;background:var(--warn);font-size:.85rem;display:grid;place-items:center;border:2px solid #fff}
 .tok.dragging{cursor:grabbing;z-index:9;opacity:.9}
@@ -868,7 +868,7 @@ function panelSel(m, p){
 function panelOverview(m, free){
   const on = [...oppOn(m)].sort(byN), gk = oppGK(m);
   const rows = on.filter(p => !(gk && p.id === gk.id)).map(p => { const mk = ourBy(p.mk);
-    return `<tr class="${p.pb?'pb':''}" data-act="sel" data-id="${p.id}"><td><span class="bignum sm">${p.n}</span></td><td>${esc(p.name)}</td><td class="arrow">⟵</td><td>${mk?`<span class="bignum sm our">${mk.n}</span> <span class="hint" style="margin:0">${esc(fieldName(mk))}</span>`:'<b style="color:var(--warn)">?</b>'}</td><td>${p.pb?'⚠':''}</td></tr>`; }).join('');
+    return `<tr class="${p.pb?'pb':''}" data-act="sel" data-id="${p.id}"><td><span class="bignum sm">${p.n}</span></td><td>${esc(p.name)}</td><td class="arrow">⟵</td><td>${mk?`<span class="bignum sm our">${mk.n}</span> <span style="font:700 1.2rem/1 var(--num);margin-left:4px">${esc(fieldName(mk))}</span>`:'<b style="color:var(--warn)">?</b>'}</td><td>${p.pb?'⚠':''}</td></tr>`; }).join('');
   const log = M().notes.filter(n => n.cat === 'Marcature' && n.auto).slice(-6).reverse();
   return `<h2>Accoppiamenti</h2>
   ${rows ? `<table class="mtable"><tbody>${rows}</tbody></table>` : '<p class="hint">Inserisci i numeri toccando i <b>+</b> sul campo.</p>'}
