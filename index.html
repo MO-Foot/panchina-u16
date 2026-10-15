@@ -564,7 +564,7 @@ function render(){
   $('#main').innerHTML = V(m);
   if(S.view === 'campo') bindPitch();
   if(S.view === 'board') bindBoard();
-  const dl = $('#dbxLink'); if(dl) dbxAuthUrl().then(u => { dl.href = u; }).catch(() => {});
+  const dl = $('#dbxLink'); if(dl) dbxAuthUrl().then(u => { dl.href = u; const ui = $('#dbxUrl'); if(ui) ui.value = u; }).catch(e => { const ui = $('#dbxUrl'); if(ui) ui.value = 'Errore: ' + (e && e.message || e); });
   tick(); updSave();
 }
 
@@ -1616,6 +1616,9 @@ const ACT = {
   delMatch(el){ const id = el.dataset.id, x = S.matches[id]; confirmModal('Eliminare la partita?', `${x.opp||'Senza avversario'} del ${fmtDate(x.date)}. Se non l'hai esportata, i dati andranno persi.`, 'Elimina', () => { delete S.matches[id]; S.deleted = S.deleted || {}; S.deleted[id] = Date.now(); if(S.cur === id) S.cur = Object.keys(S.matches)[0] || null; M(); save(true); render(); }); },
 
   dbxSetKey(){ const k = ($('#dbxKeyIn').value || '').trim(); if(!/^[a-z0-9]{8,32}$/i.test(k)) return toast('App key non valida: copiala da Dropbox, scheda Settings'); DBX = {key:k}; dbxSave(); render(); },
+  dbxCopy(){ const i = $('#dbxUrl'); if(!i || !/^https:/.test(i.value)) return toast('Link non ancora pronto, riprova tra un attimo');
+    const fallback = () => { i.focus(); i.select(); i.setSelectionRange(0, i.value.length); toast('Link selezionato: tienilo premuto e scegli «Copia»'); };
+    try{ navigator.clipboard.writeText(i.value).then(() => toast('Link copiato: incollalo nella barra di Safari'), fallback); }catch(e){ fallback(); } },
   dbxResetKey(){ DBX = {}; dbxSave(); render(); },
   async dbxConnect(){
     const c = ($('#dbxCodeIn').value || '').trim(); if(!c) return toast('Incolla il codice che ti ha dato Dropbox');
@@ -1783,7 +1786,8 @@ function dbxCardHtml(){
     <div class="addrow" style="grid-template-columns:1fr auto"><input id="dbxKeyIn" placeholder="App key (es. a1b2c3d4e5f6g7h)" autocomplete="off"><button class="btn pri" data-act="dbxSetKey">Salva</button></div>`;
   if(!DBX.refresh) return `<p class="hint" style="margin-top:0">Collega questo dispositivo, una volta sola:</p>
     <div class="btnrow" style="margin-top:0"><a class="btn pri" id="dbxLink" href="#" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;text-decoration:none">1. Apri Dropbox e consenti l'accesso ↗</a></div>
-    <p class="hint">Dropbox ti mostra un codice: copialo, torna qui e incollalo.</p>
+    <div class="addrow" style="grid-template-columns:1fr auto;margin-top:8px"><input id="dbxUrl" readonly placeholder="Preparazione del link…" aria-label="Link di autorizzazione Dropbox"><button class="btn" data-act="dbxCopy">Copia link</button></div>
+    <p class="hint">Dropbox ti mostra un codice: copialo, torna qui e incollalo. <b>Se il pulsante non apre Dropbox</b> (può succedere sull'iPad): tocca «Copia link», apri Safari, incolla il link nella barra degli indirizzi, consenti l'accesso, copia il codice e torna in questa app.</p>
     <div class="addrow" style="grid-template-columns:1fr auto"><input id="dbxCodeIn" placeholder="2. Incolla il codice" autocomplete="off"><button class="btn pri" data-act="dbxConnect">Collega</button></div>
     ${DBX_APP_KEY ? '' : '<p class="hint"><button class="btn" data-act="dbxResetKey" style="min-height:38px">Cambia App key</button></p>'}`;
   return `<p id="dbxStatus" style="margin-top:0">${dbxStatusText()}</p>
