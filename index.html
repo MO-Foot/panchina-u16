@@ -1241,7 +1241,7 @@ function spView(m, sch){
     if(mk){
       const list = nums(sch, mk);
       const rows = list.map(n => { const o = ourByN(n), opp = o && oppOn(m).find(q => q.ck === o.id);
-        return `<div class="mkrow">${pn(n)}<span class="arr">→</span><button class="opb ${opp?'set':''}" data-act="spCk" data-n="${n}" ${o?'':'disabled'}>${opp ? `<b>${opp.n}</b><span>${[esc(opp.name), (opp.h ? H_LAB[opp.h] : '') + (opp.cm ? ' ' + esc(opp.cm) + ' cm' : ''), esc(opp.role)].map(x => x.trim()).filter(Boolean).join(', ')}</span>` : 'Tocca per scegliere l\'avversario'}</button></div>`; }).join('');
+        return `<div class="mkrow">${pn(n)}<span class="arr">→</span><button class="opb ${opp?'set':''}" data-act="spCk" data-n="${n}">${!o ? 'Il ' + n + ' non è in rosa: tocca per scegliere chi lo sostituisce' : opp ? `<b>${opp.n}</b><span>${[esc(opp.name), (opp.h ? H_LAB[opp.h] : '') + (opp.cm ? ' ' + esc(opp.cm) + ' cm' : ''), esc(opp.role)].map(x => x.trim()).filter(Boolean).join(', ')}</span>` : 'Tocca per scegliere l\'avversario'}</button></div>`; }).join('');
       const ids = new Set(list.map(n => { const o = ourByN(n); return o && o.id; }).filter(Boolean));
       const gk = oppGK(m);
       const tallFree = oppOn(m).filter(q => q.h > 0 && !(gk && q.id === gk.id) && !(q.ck && ids.has(q.ck)));
@@ -1624,7 +1624,17 @@ const ACT = {
   sopra(el){ UI.sopra = +el.dataset.v; render(); },
   spEditT(){ UI.spEdit = !UI.spEdit; render(); },
   spCk(el){
-    const m = M(), o = ourByN(+el.dataset.n); if(!o) return;
+    const m = M(), n = +el.dataset.n, o = ourByN(n);
+    if(!o){ // numero dello schema che non c'è in questa partita: scegli chi lo sostituisce, poi l'avversario
+      const sch = curSch(m), sl = sch && sch.slots.find(x => x.type === 'markers'); if(!sl) return;
+      const cur = nums(sch, sl), rank = {tit:0, pan:1, usc:2}, ogk = ourGK(m);
+      const list = m.our.filter(p => p.st !== 'out' && !p.gk && p !== ogk && !cur.includes(p.n)).sort((a,b) => (rank[a.st] - rank[b.st]) || byN(a,b));
+      if(!list.length) return toast('Nessun giocatore disponibile: inseriscili in Pre-partita');
+      return pickModal(`Il ${n} non è in rosa: chi lo sostituisce?`, list.map(p => ({label:String(p.n), sub:[p.name, p.st==='tit' ? '' : ST_LAB[p.st]].filter(Boolean).join(' · ')})), i => {
+        setNums(sch, sl, nums(sch, sl).map(x => x === n ? list[i].n : x)); save(); render();
+        ACT.spCk({dataset:{n:String(list[i].n)}});
+      }, '', true);
+    }
     const gk = oppGK(m), list = oppOn(m).filter(q => !(gk && q.id === gk.id)).sort((a,b) => (b.h - a.h) || byN(a,b));
     const opts = list.map(q => ({label:String(q.n), sub:[q.name, q.h ? H_LAB[q.h] : '', (q.ck && q.ck !== o.id) ? 'su ' + nOur(q.ck) : ''].filter(Boolean).join(' · '), cls: q.ck === o.id ? 'cur' : (q.ck ? 'used' : '')}));
     opts.push({label:'—', sub:'nessuno'});
