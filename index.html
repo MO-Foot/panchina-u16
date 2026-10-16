@@ -917,6 +917,17 @@ function bindBench(){
       if(ev.type === 'pointercancel' || ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom){ return; }
       let x = Math.min(97, Math.max(3, (ev.clientX - r.left)/r.width*100)), y = Math.min(95, Math.max(5, (ev.clientY - r.top)/r.height*100));
       const m = M(); if(m.flip){ x = 100 - x; y = 100 - y; }
+      const tpx = (document.querySelector('#pitch .tok:not(.ghost)') || {}).offsetWidth || 40;
+      const hit = oppOn(m).filter(q => q.x != null && q.n !== n).map(q => ({q, d:Math.hypot((q.x - x)/100*r.width, (q.y - y)/100*r.height)})).filter(o => o.d < tpx*0.8).sort((a, b) => a.d - b.d)[0];
+      if(hit){ // lasciato sopra un avversario in campo: cambio, chi entra prende posizione e marcatore
+        const out = hit.q; let inn = m.their.find(q => q.n === n);
+        if(!inn){ inn = {id:uid(), n, name:'', gk:false, on:false, h:0, cm:'', role:'', mk:null, ck:null, pb:false, note:''}; m.their.push(inn); }
+        inn.exited = false; swapOpp(m, out, inn);
+        if(started(m)) addNote({cat:'Marcature', side:'marc', text:`Cambio loro: esce ${out.n}, entra ${inn.n}${inn.mk ? ' (lo marca ' + nOur(inn.mk) + ')' : ''}`, auto:true});
+        else out.exited = false;   // prima della partita è solo una correzione del numero
+        if(UI.sel === out.id) UI.sel = null; save(); render();
+        toast(`Cambio: esce ${out.n}, entra ${inn.n}${inn.mk ? ' · lo marca ' + nOur(inn.mk) : ''}`); return;
+      }
       const t = benchDrop(m, n, x, y);
       if(started(m)) addNote({cat:'Marcature', side:'marc', text:`Entra in campo il n°${n}${t && t.mk ? ' (lo marca ' + nOur(t.mk) + ')' : ''}`, auto:true});
       const msg = autoSystem(m); save(); render();
@@ -1025,6 +1036,13 @@ function swapOppPos(a, b, from){
   save();
 }
 let LAST_TAP = {id:null, t:0};
+/* Tocco sull'etichetta del marcatore: cambio rapido di chi lo marca */
+function quickMarker(p){
+  const m = M(), on = oppOn(m), list = markers(m);
+  const opts = list.map(o => { const other = on.find(q => q.mk === o.id && q.id !== p.id); return {label:String(o.n), sub: other ? 'su ' + other.n : (fieldName(o) || 'libero'), cls: p.mk === o.id ? 'cur' : (other ? 'used' : '')}; });
+  opts.push({label:'—', sub:'nessuno', cls: p.mk ? '' : 'cur'});
+  pickModal(`Chi marca il ${p.n}${p.name ? ' (' + p.name + ')' : ''}?`, opts, i => { assign(p, i < list.length ? list[i].id : null); render(); }, '<p class="hint" style="margin-top:0">Se scegli chi marca già un altro, i due si scambiano.</p>', true);
+}
 /* Doppio tocco su un avversario: cambio rapido scegliendo dalla distinta */
 function quickSubOpp(out){
   const m = M(), bench = m.their.filter(q => !q.on && !q.exited).sort(byN);
@@ -1046,7 +1064,7 @@ function bindPitch(){
     if(!t){ drag = {empty:true, sx:e.clientX, sy:e.clientY}; return; }   // tocco sul prato: toglie la selezione
     e.preventDefault(); t.setPointerCapture(e.pointerId);
     const p0 = t.dataset.tok && oppBy(t.dataset.tok);
-    drag = {t, id:t.dataset.tok, slot:t.dataset.slot, ghost:t.classList.contains('ghost'), sx:e.clientX, sy:e.clientY, moved:false, ox:p0 ? p0.x : null, oy:p0 ? p0.y : null};
+    drag = {t, id:t.dataset.tok, slot:t.dataset.slot, ghost:t.classList.contains('ghost'), chip:!!e.target.closest('.mk'), sx:e.clientX, sy:e.clientY, moved:false, ox:p0 ? p0.x : null, oy:p0 ? p0.y : null};
   });
   pitch.addEventListener('pointermove', e => {
     if(drag && drag.empty){ if(Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy) > 10) drag = null; return; }
@@ -1083,6 +1101,7 @@ function bindPitch(){
       if(target){ swapOppPos(p, target.q, {x:d.ox, y:d.oy}); render(); toast(`Scambiati ${p.n} e ${target.q.n}`); return; }
       p.x = +d.x.toFixed(1); p.y = +d.y.toFixed(1); save(); if(activePlan(M())) render();
     }
+    else if(p && d.chip){ UI.sel = p.id; render(); GHOST_T = Date.now(); quickMarker(p); }
     else if(p){
       const now = Date.now(), dbl = LAST_TAP.id === p.id && now - LAST_TAP.t < 450;
       LAST_TAP = dbl ? {id:null, t:0} : {id:p.id, t:now};
