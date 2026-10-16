@@ -106,8 +106,12 @@ main{padding:12px;padding-bottom:40px}
 .mpanel{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
 .tok.ourt.ourgk{background:var(--opp-gk);color:#fff;box-shadow:0 0 0 2px var(--our),0 2px 6px rgba(0,0,0,.35)}
 .halves{display:flex;justify-content:center;gap:12px;width:100%}
-.phrows{display:flex;gap:18px;width:100%;justify-content:center}
-.phrow{flex:1 1 0;min-width:0}
+.phrows{display:flex;gap:40px;width:100%;justify-content:center}
+.phrow{flex:1 1 0;min-width:0;border:4px solid var(--phc);border-radius:14px;padding:4px 6px 8px;position:relative;--phc:#1f5fd1}
+.phrow.off{--phc:#f08a00}
+.phrow + .phrow::before{content:'';position:absolute;left:-24px;top:8px;bottom:8px;border-left:2px dashed var(--line)}
+.phrow .phtitle,.phrow .hlab{color:var(--phc)}
+.pitch.half .atk{position:absolute;top:2%;left:50%;transform:translateX(-50%);color:#fff;opacity:.55;font-size:1.3rem;line-height:1;pointer-events:none}
 .halves .halfwrap{flex:0 0 min(calc(50% - 6px), calc((100vh - 310px) * 52.5 / 68))}
 .halves .hlab{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .halfwrap{display:flex;flex-direction:column;align-items:center;min-width:0}
@@ -979,14 +983,14 @@ function halfHTML(m, P, flip){
   const lines = high ? oppOn(m).map(p => { const a = pos.opp[p.id], o = p.mk && ourBy(p.mk), b = o && pos.our[o.id]; if(!vis(a) || !vis(b)) return '';
     return `<line x1="${((a.x - x0)*1.05).toFixed(2)}" y1="${(a.y*.68).toFixed(2)}" x2="${((b.x - x0)*1.05).toFixed(2)}" y2="${(b.y*.68).toFixed(2)}"/>`; }).join('') : '';
   const our = field(m).map(o => { const q = pos.our[o.id]; if(!vis(q)) return ''; return `<div class="tok ourt ${o === ogk ? 'ourgk' : ''}" data-ph="${P.k}" data-team="our" data-pid="${o.id}" style="${L(q)}">${o.n}</div>`; }).join('');
-  return `<div class="halfwrap"><div class="hlab">${esc(P.lab)}</div><div class="pitch half ${flip ? 'flip' : ''}" data-ph="${P.k}" data-x0="${x0}"><div class="hsvg" style="left:${x0 ? '-100%' : '0'}">${PITCH_SVG}</div>${lines ? `<svg class="mklines" viewBox="0 0 52.5 68" preserveAspectRatio="none">${lines}</svg>` : ''}${our}${opp}</div></div>`;
+  return `<div class="halfwrap"><div class="hlab">${esc(P.lab)}</div><div class="pitch half ${flip ? 'flip' : ''}" data-ph="${P.k}" data-x0="${x0}"><div class="hsvg" style="left:${x0 ? '-100%' : '0'}">${PITCH_SVG}</div><div class="atk" aria-hidden="true">➜</div>${lines ? `<svg class="mklines" viewBox="0 0 52.5 68" preserveAspectRatio="none">${lines}</svg>` : ''}${our}${opp}</div></div>`;
 }
 function renderCampo(m){
   if(!Array.isArray(m.plans)) m.plans = [];
   ensurePositions(m);
   const on = oppOn(m), gk = oppGK(m);
   if(UI.sel && !on.some(p => p.id === UI.sel)) UI.sel = null;
-  const rows = [['Fase difensiva', PHASES.dif], ['Fase offensiva', PHASES.off]];
+  const rows = [['Fase difensiva', PHASES.dif, 'dif'], ['Fase offensiva', PHASES.off, 'off']];
   const unmarked = on.filter(p => !p.mk && !(gk && p.id === gk.id));
   const plans = m.plans || [];
   return `<div class="planbar"><span class="pl">Sistema avversario</span>
@@ -994,7 +998,7 @@ function renderCampo(m){
     <span style="flex:1"></span><button class="btn" data-act="phReset" title="Riporta le pedine di questo campo alla formazione del master">↺ Dal master</button>${tokSizer()}<button class="btn ${m.flip ? 'pri' : ''}" data-act="flip" title="Gira il campo come lo vedi dalla panchina">⟲ Gira campo</button></div>
   <div class="campo">
     <div class="pitchwrap">
-      <div class="phrows">${rows.map(([t, phs]) => `<div class="phrow"><div class="phtitle">${t}</div><div class="halves">${(m.flip ? [phs[1], phs[0]] : phs).map(P => halfHTML(m, P, m.flip)).join('')}</div></div>`).join('')}</div>
+      <div class="phrows">${rows.map(([t, phs, c]) => `<div class="phrow ${c}"><div class="phtitle">${t}</div><div class="halves">${(m.flip ? [phs[1], phs[0]] : phs).map(P => halfHTML(m, P, m.flip)).join('')}</div></div>`).join('')}</div>
       ${benchHTML(m)}
       <div class="pitchfoot"><span>${on.length ? 'Le pedine partono dal master (Pre-partita): trascinale per sistemarle in questa fase. Tocca un avversario per il marcatore, doppio tocco per il cambio.' : '<b>Inserisci la formazione nel campo master in Pre-partita, oppure trascina i numeri dalla panchina.</b>'}</span>
       <span>${unmarked.length ? `<b style="color:var(--warn)">Senza marcatore: ${unmarked.map(p => p.n).join(', ')}</b>` : (on.length ? '<b style="color:var(--ok)">Tutti marcati</b>' : '')}</span></div>
