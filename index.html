@@ -334,7 +334,24 @@ svg.trace circle{fill:none;stroke:#fff;stroke-width:.35;stroke-dasharray:1 .8;op
 .corner2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
 .ccol{border:4px solid var(--phc);border-radius:14px;padding:10px 12px;--phc:#1f5fd1;min-width:0}
 .ccol.off{--phc:#f08a00}
-.ccol .cch{color:var(--phc);margin:0 0 6px}
+.ccol .cch{color:var(--phc);margin:0}
+.cchead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px}
+.cchead .ctop{flex:1;margin:0;gap:6px;flex-wrap:wrap}
+.cchead .btn,.cchead .seg button{min-height:38px;padding:0 10px;font-size:.88rem}
+.ccol{padding:8px 10px}
+.ccol .spc{padding:6px 8px 8px}
+.ccol .spc.area{grid-column:1/-1}
+.ccol .pn b{font-size:1.9rem}
+.ccol .pn small{font-size:.66rem;max-width:84px}
+.ccol .spn{gap:10px;margin-top:4px}
+.ccol h3{margin:6px 0 4px;font-size:.9rem}
+.ccol .hint{display:none}
+.ccol .mklist{display:grid;grid-template-columns:1fr 1fr;column-gap:6px}
+.ccol .mkrow{grid-template-columns:58px 14px 1fr;gap:5px;padding:4px 4px}
+.ccol .mkrow:last-child{border-bottom:1px solid var(--line)}
+.ccol .mkrow .arr{font-size:1rem}
+.ccol .opb{min-height:40px;font-size:.76rem;line-height:1.15;gap:6px;padding:3px 7px}
+.ccol .opb b{font-size:1.6rem}
 .ccol .spgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 @media (max-width:980px){ .corner2{grid-template-columns:1fr} }
 .spn{display:flex;flex-wrap:wrap;gap:14px;margin-top:6px;align-items:center}
@@ -1659,7 +1676,7 @@ function renderCorner(m){
   if(UI.spTab === 'hist') return head + renderHist(m);
   if(UI.spTab === 'corner'){
     const col = (sch, t, c) => { UI.ctxSch = sch.id; const body = UI.spEdit === sch.id ? spEditor(m, sch) : spView(m, sch); UI.ctxSch = null;
-      return `<div class="ccol ${c}" data-sch="${sch.id}"><h2 class="cch">${t}</h2>${spBar(m, sch)}${body}</div>`; };
+      return `<div class="ccol ${c}" data-sch="${sch.id}"><div class="cchead"><h2 class="cch">${t}</h2>${spBar(m, sch)}</div>${body}</div>`; };
     return head + `<div class="corner2">${col(cd, 'Difesa', 'dif')}${col(co, 'Attacco', 'off')}</div>`;
   }
   const sch = curSch(m);
@@ -1684,7 +1701,7 @@ function spView(m, sch){
       return spCard(sl.label, a, sl.id === 'dietro' ? 'key' : '', sl);
     }).join('');
     const area = field(m).filter(p => !p.gk && !used.has(p.n)).map(p => p.n).sort((a,b) => a-b);
-    return `<div class="spgrid">${cards}${spCard('In area (tutti gli altri)', area)}</div>
+    return `<div class="spgrid">${cards}${spCard('In area (tutti gli altri)', area, 'area')}</div>
       <p class="hint">Con «Loro sopra» indichi quanti avversari restano alti: in arancione chi deve restare o rientrare. Dietro restano tanti dei nostri quanti sono i loro rimasti sopra.</p>`;
   }
   if(sch.type === 'cdif'){
@@ -1693,11 +1710,11 @@ function spView(m, sch){
     if(mk){
       const list = nums(sch, mk);
       const rows = list.map(n => { const o = ourByN(n), opp = o && oppOn(m).find(q => q.ck === o.id);
-        return `<div class="mkrow"><button class="pnb" data-act="spNum" data-sl="${mk.id}" data-n="${n}" title="Cambia o togli il ${n}">${pn(n)}</button><span class="arr">→</span><button class="opb ${opp?'set':''}" data-act="spCk" data-n="${n}">${!o ? 'Il ' + n + ' non è in rosa: tocca per scegliere chi lo sostituisce' : opp ? `<b>${opp.n}</b><span>${[esc(opp.name), (opp.h ? H_LAB[opp.h] : '') + (opp.cm ? ' ' + esc(opp.cm) + ' cm' : ''), esc(opp.role)].map(x => x.trim()).filter(Boolean).join(', ')}</span>` : 'Tocca per scegliere l\'avversario'}</button></div>`; }).join('');
+        return `<div class="mkrow"><button class="pnb" data-act="spNum" data-sl="${mk.id}" data-n="${n}" title="Cambia o togli il ${n}">${pn(n)}</button><span class="arr">→</span><button class="opb ${opp?'set':''}" data-act="spCk" data-n="${n}">${!o ? 'Non in rosa: tocca per sostituirlo' : opp ? `<b>${opp.n}</b><span>${[esc(opp.name), (opp.h ? H_LAB[opp.h] : '') + (opp.cm ? ' ' + esc(opp.cm) + ' cm' : ''), esc(opp.role)].map(x => x.trim()).filter(Boolean).join(', ')}</span>` : 'Tocca e scegli l\'avversario'}</button></div>`; }).join('');
       const ids = new Set(list.map(n => { const o = ourByN(n); return o && o.id; }).filter(Boolean));
       const gk = oppGK(m);
       const tallFree = oppOn(m).filter(q => q.h > 0 && !(gk && q.id === gk.id) && !(q.ck && ids.has(q.ck)));
-      html += `<h3>${esc(mk.label)}</h3><div class="card" style="padding:0 4px">${rows || '<p class="empty" style="padding:10px">Nessun marcatore: aggiungili con «Modifica schema».</p>'}</div>
+      html += `<h3>${esc(mk.label)}</h3><div class="card mklist" style="padding:0 4px">${rows || '<p class="empty" style="padding:10px">Nessun marcatore: aggiungili con «Modifica schema».</p>'}</div>
         ${tallFree.length ? `<p class="warnline">⚠ Avversari segnati alti senza marcatore: ${tallFree.map(q => q.n + (q.name ? ' ' + esc(q.name) : '')).join(', ')}</p>` : ''}
         <p class="hint">Gli avversari sono ordinati per altezza (scheda «Altezze avversari»). Se scegli un avversario già marcato, i due marcatori si scambiano.</p>`;
     }
