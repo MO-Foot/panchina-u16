@@ -105,10 +105,17 @@ main{padding:12px;padding-bottom:40px}
 .mastercol .pitch{width:100%}
 .mpanel{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
 .tok.ourt.ourgk{background:var(--opp-gk);color:#fff;box-shadow:0 0 0 2px var(--our),0 2px 6px rgba(0,0,0,.35)}
-.halves{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%}
+.halves{display:flex;justify-content:center;gap:12px;width:100%}
+.phrows{display:flex;gap:18px;width:100%;justify-content:center}
+.phrow{flex:1 1 0;min-width:0}
+.halves .halfwrap{flex:0 0 min(calc(50% - 6px), calc((100vh - 310px) * 52.5 / 68))}
+.halves .hlab{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .halfwrap{display:flex;flex-direction:column;align-items:center;min-width:0}
-.hlab{font-size:.85rem;font-weight:700;color:var(--warn);margin:0 0 4px;text-align:center}
-.pitch.half{aspect-ratio:52.5/68;width:min(100%, calc((100vh - 300px) * 52.5 / 68));background:repeating-linear-gradient(90deg,var(--pitch) 0 19.04%,var(--pitch2) 19.04% 38.08%)}
+.hlab{font-size:.78rem;font-weight:700;color:var(--warn);margin:0 0 2px;text-align:center}
+.pitch.half .tok{font-size:calc(var(--t)*.48)}
+.phrow{width:100%;margin-bottom:6px}
+.phtitle{font-weight:700;font-size:.9rem;margin:0 0 2px;text-align:center}
+.campo .pitch.half{--t:calc(var(--tb) * .85);aspect-ratio:52.5/68;width:100%;background:repeating-linear-gradient(90deg,var(--pitch) 0 19.04%,var(--pitch2) 19.04% 38.08%)}
 .pitch.half .hsvg{position:absolute;top:0;bottom:0;width:200%;pointer-events:none}
 .pitch.half .hsvg svg{position:absolute;inset:0;width:100%;height:100%}
 .phseg button{min-width:150px}
@@ -908,7 +915,7 @@ function renderMaster(m){
   return planBar(m) + `<div class="mbar"><label class="bsel"><span class="sw our"></span>Noi ${fsel('fOur', m.fOur || '4-3-3')}</label>${plan ? '' : `<label class="bsel"><span class="sw opp"></span>Loro ${fsel('formation', m.formation || '4-4-2')}</label>`}</div>
   <div class="mastercol">
     <div class="pitchwrap">
-      <div class="pitch ${m.flip?'flip':''}" id="pitch">${PITCH_SVG}${trace ? `<svg class="trace" viewBox="0 0 105 68" preserveAspectRatio="none">${trace}</svg>` : ''}${ghosts}${ourToks}${toks}</div>
+      <div class="pitch ${m.flip?'flip':''}" id="pitch">${PITCH_SVG}${ghosts}${ourToks}${toks}</div>
       ${benchHTML(m)}
       <div class="pitchfoot"><span>${!on.length ? '<b>Trascina i numeri dalla panchina sul campo: con 11 giocatori l\'app riconosce il sistema e applica il piano preparato.</b>' : plan && empty ? `<b>Tocca un <span class="plus">+</span> per inserire il numero (${empty} posizioni vuote)</b>` : (m.flip ? 'La nostra porta ⟶' : '⟵ La nostra porta') + '. Trascina un giocatore per spostarlo, toccalo per selezionarlo, doppio tocco per il cambio.'}</span>
       <span>${unplaced.length ? `<b style="color:var(--warn)">Da ricollocare: ${unplaced.map(p=>p.n).join(', ')}</b> ` : ''}${unmarked.length ? `<b style="color:var(--warn)">Senza marcatore: ${unmarked.map(p=>p.n).join(', ')}</b>` : (on.length ? '<b style="color:var(--ok)">Tutti marcati</b>' : '')}</span></div>
@@ -979,15 +986,15 @@ function renderCampo(m){
   ensurePositions(m);
   const on = oppOn(m), gk = oppGK(m);
   if(UI.sel && !on.some(p => p.id === UI.sel)) UI.sel = null;
-  const phs = PHASES[UI.phase] || PHASES.dif, order = m.flip ? [phs[1], phs[0]] : phs;
+  const rows = [['Fase difensiva', PHASES.dif], ['Fase offensiva', PHASES.off]];
   const unmarked = on.filter(p => !p.mk && !(gk && p.id === gk.id));
   const plans = m.plans || [];
-  return `<div class="planbar"><div class="seg phseg"><button class="${UI.phase !== 'off' ? 'on' : ''}" data-act="phase" data-v="dif">Fase difensiva</button><button class="${UI.phase === 'off' ? 'on' : ''}" data-act="phase" data-v="off">Fase offensiva</button></div>
+  return `<div class="planbar"><span class="pl">Sistema avversario</span>
     ${plans.map(p => `<button class="plchip ${m.activePlan === p.id ? 'on' : ''}" data-act="planAct" data-id="${p.id}">${esc(p.name)}</button>`).join('')}
     <span style="flex:1"></span><button class="btn" data-act="phReset" title="Riporta le pedine di questo campo alla formazione del master">↺ Dal master</button>${tokSizer()}<button class="btn ${m.flip ? 'pri' : ''}" data-act="flip" title="Gira il campo come lo vedi dalla panchina">⟲ Gira campo</button></div>
   <div class="campo">
     <div class="pitchwrap">
-      <div class="halves">${order.map(P => halfHTML(m, P, m.flip)).join('')}</div>
+      <div class="phrows">${rows.map(([t, phs]) => `<div class="phrow"><div class="phtitle">${t}</div><div class="halves">${(m.flip ? [phs[1], phs[0]] : phs).map(P => halfHTML(m, P, m.flip)).join('')}</div></div>`).join('')}</div>
       ${benchHTML(m)}
       <div class="pitchfoot"><span>${on.length ? 'Le pedine partono dal master (Pre-partita): trascinale per sistemarle in questa fase. Tocca un avversario per il marcatore, doppio tocco per il cambio.' : '<b>Inserisci la formazione nel campo master in Pre-partita, oppure trascina i numeri dalla panchina.</b>'}</span>
       <span>${unmarked.length ? `<b style="color:var(--warn)">Senza marcatore: ${unmarked.map(p => p.n).join(', ')}</b>` : (on.length ? '<b style="color:var(--ok)">Tutti marcati</b>' : '')}</span></div>
@@ -2053,7 +2060,7 @@ const ACT = {
   kpSkip(){ const m = M(), plan = activePlan(m), sid = MC.slotId; closeModal(); const nx = nextEmptySlot(m, plan, sid); if(nx && nx.id !== sid) openKeypad(nx.id); },
   sel(el){ UI.sel = el.dataset.id; render(); },
   phase(el){ UI.phase = el.dataset.v; UI.sel = null; render(); },
-  phReset(){ const m = M(), phs = PHASES[UI.phase] || PHASES.dif; confirmModal('Riportare al master?', `Le pedine di «${phs[0].lab}» e «${phs[1].lab}» tornano alle posizioni ricavate dalla formazione del master.`, 'Riporta', () => { phs.forEach(P => { if(m.ph) delete m.ph[P.k]; }); save(); render(); toast('Fasi riallineate al master'); }); },
+  phReset(){ const m = M(); confirmModal('Riportare al master?', 'Le pedine di tutte e 4 le fasi tornano alle posizioni ricavate dalla formazione del master.', 'Riporta', () => { m.ph = {}; save(); render(); toast('Fasi riallineate al master'); }); },
   desel(){ UI.sel = null; render(); },
   assign(el){ const p = oppBy(UI.sel); if(!p) return; assign(p, el.dataset.our); render(); },
   seqAssign(){ const nx = nextUnmarked(M()); if(!nx) return toast('Tutti gli avversari hanno un marcatore'); UI.sel = nx.id; render(); },
