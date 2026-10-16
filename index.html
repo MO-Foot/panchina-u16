@@ -2224,7 +2224,7 @@ async function syncNow(manual){
 /* ============ Lavoro in squadra: Firebase Realtime Database (REST + streaming, senza librerie) ============
    Ogni pezzo della partita (dati generali, ogni giocatore, ogni nota, ogni schema…) è un nodo separato,
    così due persone che modificano cose diverse nello stesso momento non si cancellano a vicenda. */
-const FB_CFG = {apiKey:'', databaseURL:''};
+const FB_CFG = {apiKey:'AIzaSyCzTKkf0ls6_PLMqdRehEa6kX9239k-1Kc', databaseURL:'https://panchina-u16-default-rtdb.europe-west1.firebasedatabase.app'};   // progetto Firebase «panchina-u16» (la apiKey di Firebase non è segreta)
 const FBK = 'panchinaU16.fb';
 let FB = (() => { try{ return JSON.parse(localStorage.getItem(FBK)) || {}; }catch(e){ return {}; } })();
 const FBX = {id:null, exp:0, es:null, remote:null, state:'', msg:'', pushing:false, timer:null, saveT:null, pending:false, ready:false};
