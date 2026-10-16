@@ -740,6 +740,7 @@ function confirmModal(title, text, okLabel, cb){
 }
 
 /* ============ Render ============ */
+document.addEventListener('pointerdown', e => { UI.pinPitch = !!(e.target.closest && e.target.closest('.pre .master')); }, true);
 function render(){
   const m = M();
   document.documentElement.dataset.theme = S.theme;
@@ -751,7 +752,11 @@ function render(){
   $('#hdrName').textContent = m.opp ? 'vs ' + m.opp : 'Nuova partita';
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === S.view));
   const V = {pre:renderPre, campo:renderCampo, board:renderBoard, corner:renderCorner, note:renderNote, int:renderInt, arch:renderArch}[S.view] || renderPre;
+  // se stai lavorando sul campo master, il campo resta fermo sullo schermo anche se le liste sopra si allungano
+  const pOld = UI.pinPitch && S.view === 'pre' && UI.lastView === 'pre' ? $('#pitch') : null, pTop = pOld ? pOld.getBoundingClientRect().top : null;
   $('#main').innerHTML = V(m);
+  UI.lastView = S.view;
+  if(pTop != null){ const pNew = $('#pitch'); if(pNew){ const d = pNew.getBoundingClientRect().top - pTop; if(Math.abs(d) > 1) window.scrollBy(0, d); } }
   if(S.view === 'pre'){ bindPitch(); bindBench(); }
   if(S.view === 'campo'){ bindPhases(); bindBench(); }
   if(S.view === 'board') bindBoard();
