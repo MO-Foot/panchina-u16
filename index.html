@@ -554,7 +554,7 @@ window.addEventListener('pagehide', () => save(true));
 /* ============ Note & log ============ */
 function addNote(o){
   const m = M();
-  const n = {id:uid(), half:m.clock.half, sec:Math.floor(elapsed(m)), min:minLabel(m), cat:o.cat||'Nota', side:o.side||'', pol:o.pol||0, text:o.text||'', star:false, auto:!!o.auto};
+  const n = {id:uid(), half:m.clock.half, sec:Math.floor(elapsed(m)), min:minLabel(m), cat:o.cat||'Nota', side:o.side||'', pol:o.pol||0, text:o.text||'', star:false, auto:!!o.auto, at:Date.now()};
   m.notes.push(n); save(); return n;
 }
 function logMk(text){ if(started(M())) addNote({cat:'Marcature', side:'marc', text, auto:true}); }
@@ -1531,7 +1531,7 @@ function renderArch(m){
   const list = Object.values(S.matches).sort((a,b) => (b.date||'').localeCompare(a.date||'') || b.created - a.created);
   return `<div class="arch">
     <div class="card"><h2>Partita aperta</h2><p><strong>${esc(m.opp) || 'Senza avversario'}</strong><br><span class="hint">${fmtDate(m.date)} ${esc(m.comp)}, ${m.notes.length} note</span></p>
-      <div class="btnrow"><button class="btn pri" data-act="exportMatch" data-id="${m.id}">Esporta partita (file)</button><button class="btn" data-act="print">Stampa / salva PDF</button><button class="btn" data-act="newMatch">Nuova partita</button></div>
+      <div class="btnrow"><button class="btn pri" data-act="exportMatch" data-id="${m.id}">Esporta partita (file)</button><button class="btn" data-act="hudlOpen">Tag per Hudl (XML)</button><button class="btn" data-act="print">Stampa / salva PDF</button><button class="btn" data-act="newMatch">Nuova partita</button></div>
       <p class="hint">I dati restano salvati su questo tablet. Dopo ogni partita esporta il file e mettilo in Dropbox: è la tua copia di sicurezza.</p>
       <p class="hint">Stato salvataggio: <b>${storageOK ? 'attivo su questo tablet' : 'NON disponibile: esporta prima di chiudere la pagina'}</b>.</p>
     </div>
@@ -1568,6 +1568,61 @@ function buildReport(m){
 }
 
 /* ============ Import / export ============ */
+/* ---- Esportazione tag in formato Sportscode XML (Hudl) ----
+   I tempi nel file sono secondi dall'inizio del video: inizio tempo nel video + secondo della nota. */
+const mmss = v => { const t = String(v || '').trim(); if(!t) return null; const a = t.split(/[:.,']/).map(x => parseInt(x, 10) || 0); return a.length === 3 ? a[0]*3600 + a[1]*60 + a[2] : a.length === 2 ? a[0]*60 + a[1] : a[0]*60; };
+const xmlTx = t => String(t == null ? '' : t).replace(/&/g, 'e').replace(/[<>]/g, '').replace(/[\u0000-\u001f]/g, ' ').trim();
+function hudlXML(m, o){
+  const notes = m.notes.filter(n => o.all ? (n.side || n.text) : n.side === 'zona').filter(n => n.half === 1 || n.half === 2);
+  const t0 = {1:o.h1, 2:o.h2};
+  const rows = [], inst = notes.map((n, i) => {
+    const c = t0[n.half] + (n.sec || 0), code = n.side === 'zona' ? n.cat : (n.side === 'marc' ? 'Marcature' : n.cat);
+    if(!rows.includes(code)) rows.push(code);
+    const pl = n.pl ? M().our.find(x => x.id === n.pl) : null;
+    const labels = [];
+    if(n.pol) labels.push(['Esito', n.pol > 0 ? 'Positivo' : 'Negativo']);
+    if(pl) labels.push(['Giocatore', pl.n + ' ' + fieldName(pl)]);
+    labels.push(['Tempo', n.half + 'T']);
+    let free = n.text || '';
+    if(pl){ const pre = pl.n + ' ' + fieldName(pl); if(free.startsWith(pre)) free = free.slice(pre.length).replace(/^\s*·\s*/, ''); }
+    return `  <instance>
+    <ID>${i + 1}</ID>
+    <start>${Math.max(0, c - o.pre).toFixed(2)}</start>
+    <end>${(c + o.post).toFixed(2)}</end>
+    <code>${xmlTx(code)}</code>
+${labels.map(([g, t]) => `    <label>
+      <group>${xmlTx(g)}</group>
+      <text>${xmlTx(t)}</text>
+    </label>`).join('\n')}${free ? `\n    <free_text>${xmlTx(n.min + ' ' + free)}</free_text>` : ''}
+  </instance>`;
+  });
+  const col = c => /^OFF/.test(c) ? [8000, 46000, 16000] : /^DIF/.test(c) ? [6000, 26000, 60000] : /^IND/.test(c) ? [60000, 40000, 0] : [40000, 40000, 40000];
+  const order = [...CATS.zona, ...rows.filter(r => !CATS.zona.includes(r))].filter(r => rows.includes(r));
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<file>
+  <SORT_INFO>
+    <sort_type>sort order</sort_type>
+  </SORT_INFO>
+  <ALL_INSTANCES>
+${inst.join('\n')}
+  </ALL_INSTANCES>
+  <ROWS>
+${order.map((r, i) => { const [R_, G, B] = col(r); return `    <row>
+      <sort_order>${i + 1}</sort_order>
+      <code>${xmlTx(r)}</code>
+      <R>${R_}</R>
+      <G>${G}</G>
+      <B>${B}</B>
+    </row>`; }).join('\n')}
+  </ROWS>
+</file>
+`;
+}
+function downloadText(name, text, type){
+  const blob = new Blob([text], {type: type || 'text/plain'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
 function download(name, obj){
   const blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
@@ -1888,6 +1943,28 @@ const ACT = {
   intHalf(el){ const v = el.dataset.v; UI.intHalf = v === 'all' ? 'all' : +v; render(); },
   useStar(el){ const m = M(), n = m.notes.find(x => x.id === el.dataset.id), k = el.dataset.k; const i = m.msg[k].findIndex(s => !s.trim()); if(i < 0) return toast('I tre messaggi sono già pieni'); m.msg[k][i] = n.text || n.cat; save(); render(); },
 
+  hudlOpen(){
+    const m = M(), h = m.hudl || {}, nz = m.notes.filter(n => n.side === 'zona').length, L = +m.halfLen || 40;
+    openModal(`<h2>Tag per Hudl (Sportscode XML)</h2>
+      <p class="hint" style="margin-top:0">Ogni nota diventa una clip nel video. Scrivi a che punto del video inizia ogni tempo (minuti:secondi), come lo vedi nel filmato di Hudl.</p>
+      <div class="row2"><label class="fld"><span>Fischio d'inizio 1° tempo nel video</span><input id="hx1" inputmode="numeric" placeholder="es. 3:20" value="${esc(h.h1 || '')}"></label>
+      <label class="fld"><span>Fischio d'inizio 2° tempo nel video</span><input id="hx2" inputmode="numeric" placeholder="es. ${L + 18}:05" value="${esc(h.h2 || '')}"></label></div>
+      <div class="row2"><label class="fld"><span>Secondi prima della nota</span><input id="hxp" type="number" inputmode="numeric" value="${h.pre ?? 15}"></label>
+      <label class="fld"><span>Secondi dopo la nota</span><input id="hxq" type="number" inputmode="numeric" value="${h.post ?? 5}"></label></div>
+      <label class="chk"><input type="checkbox" id="hxa" ${h.all ? 'checked' : ''}> Includi anche le altre note (non solo le note per zona: ${nz})</label>
+      <div class="btnrow"><button class="btn" data-act="mClose">Annulla</button><button class="btn pri" data-act="hudlGo">Scarica XML</button></div>`);
+  },
+  hudlGo(){
+    const m = M(), h1 = mmss($('#hx1').value), h2 = mmss($('#hx2').value);
+    if(h1 == null) return toast('Scrivi quando inizia il 1° tempo nel video');
+    const has2 = m.notes.some(n => n.half === 2 && (n.side === 'zona' || $('#hxa').checked));
+    if(has2 && h2 == null) return toast('Ci sono note del 2° tempo: scrivi quando inizia nel video');
+    const o = {h1, h2: h2 ?? 0, pre: Math.max(0, +$('#hxp').value || 0), post: Math.max(0, +$('#hxq').value || 0), all: $('#hxa').checked};
+    m.hudl = {h1:$('#hx1').value.trim(), h2:$('#hx2').value.trim(), pre:o.pre, post:o.post, all:o.all}; save();
+    const xml = hudlXML(m, o), n = (xml.match(/<instance>/g) || []).length;
+    if(!n) return toast('Nessuna nota da esportare');
+    downloadText(`hudl_${m.date || ''}_${slug(m.opp)}.xml`, xml, 'application/xml'); closeModal(); toast(`Esportate ${n} clip per Hudl`);
+  },
   exportMatch(el){ const m = S.matches[el.dataset.id]; download(`partita_${m.date||''}_${slug(m.opp)}.json`, {type:'match', app:'panchina-u16', v:1, exported:new Date().toISOString(), match:m}); },
   exportAll(){ download(`panchina-backup_${todayISO()}.json`, {type:'backup', app:'panchina-u16', v:1, exported:new Date().toISOString(), data:{squad:S.squad, spTpl:S.spTpl || null, matches:S.matches}}); },
   print(){ $('#report').innerHTML = buildReport(M()); window.print(); },
