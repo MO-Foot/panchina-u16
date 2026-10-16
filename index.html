@@ -325,34 +325,34 @@ svg.trace circle{fill:none;stroke:#fff;stroke-width:.35;stroke-dasharray:1 .8;op
 .sptabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
 .sptabs button{min-height:50px;padding:0 16px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);font-weight:650}
 .sptabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.spgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
-.spc{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px 14px;border-top:6px solid var(--our)}
+.spgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.spc{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px 10px;border-top:5px solid var(--our)}
 .spc.key{border-color:var(--warn);border-width:2px;border-top-width:6px}
 .spc.dim{opacity:.5}
 .spc.empty{border-top-color:var(--line)}
-.spl{font-size:.95rem;font-weight:650;color:var(--muted);line-height:1.2}
+.spl{font-size:.82rem;font-weight:650;color:var(--muted);line-height:1.2}
 .corner2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
 .ccol{border:4px solid var(--phc);border-radius:14px;padding:10px 12px;--phc:#1f5fd1;min-width:0}
 .ccol.off{--phc:#f08a00}
 .ccol .cch{color:var(--phc);margin:0 0 6px}
-.ccol .spgrid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.ccol .spgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 @media (max-width:980px){ .corner2{grid-template-columns:1fr} }
 .spn{display:flex;flex-wrap:wrap;gap:14px;margin-top:6px;align-items:center}
 .pnb{background:none;border:0;padding:2px 4px;margin:-2px -4px;font:inherit;color:inherit;cursor:pointer;text-align:left;border-radius:8px}
 .pnb:hover,.pnb:active{background:var(--line)}
-.spplus{background:none;border:1.5px dashed var(--line);color:var(--muted,#888);border-radius:999px;width:36px;height:36px;font-size:1.2rem;cursor:pointer;flex:none}
+.spplus{background:none;border:1.5px dashed var(--line);color:var(--muted,#888);border-radius:999px;width:30px;height:30px;font-size:1.05rem;cursor:pointer;flex:none}
 .spplus.wide{width:auto;padding:0 14px;color:var(--warn);font-style:italic;font-size:.95rem}
-.pn{display:flex;flex-direction:column;align-items:center;min-width:52px}
-.pn b{font-size:3.4rem;line-height:.95;font-weight:700;color:var(--our)}
-.pn small{font-size:.75rem;color:var(--muted);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pn{display:flex;flex-direction:column;align-items:center;min-width:40px}
+.pn b{font-size:2.3rem;line-height:.95;font-weight:700;color:var(--our)}
+.pn small{font-size:.7rem;color:var(--muted);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pn.off b,.pn.nr b{color:var(--warn)}
 .pn.off small::after{content:" · non in campo";color:var(--warn)}
-.mkrow{display:grid;grid-template-columns:110px 34px 1fr;align-items:center;gap:10px;padding:10px;border-bottom:1px solid var(--line)}
+.mkrow{display:grid;grid-template-columns:84px 24px 1fr;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid var(--line)}
 .mkrow:last-child{border-bottom:0}
-.mkrow .arr{font-size:1.6rem;color:var(--muted);text-align:center}
-.opb{min-height:66px;border-radius:12px;border:2px dashed var(--muted);background:var(--surface);display:flex;align-items:center;gap:14px;padding:6px 14px;text-align:left;color:var(--muted);font-weight:700}
+.mkrow .arr{font-size:1.2rem;color:var(--muted);text-align:center}
+.opb{min-height:48px;border-radius:10px;border:2px dashed var(--muted);background:var(--surface);display:flex;align-items:center;gap:10px;padding:4px 10px;font-size:.88rem;text-align:left;color:var(--muted);font-weight:700}
 .opb.set{border:2px solid var(--opp);background:var(--opp-soft);color:var(--ink)}
-.opb b{font-size:3rem;font-weight:700;line-height:1}
+.opb b{font-size:2.1rem;font-weight:700;line-height:1}
 .opb span{color:var(--ink);font-weight:600}
 .warnline{color:var(--warn);font-weight:700;margin:10px 4px}
 .edslot{display:grid;grid-template-columns:1fr auto;gap:8px;padding:12px 0;border-bottom:1px solid var(--line)}
