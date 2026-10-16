@@ -488,10 +488,76 @@ let S = load() || {v:1, squad:[], matches:{}, cur:null, view:'pre', theme:'rosso
 if(S.theme !== 'rosso' && S.theme !== 'blu') S.theme = S.theme === 'dark' ? 'blu' : 'rosso';
 let saveTimer = null;
 function save(now, opt){
-  if(!(opt && opt.pref)){ S.dirty = true; const cm = S.cur && S.matches[S.cur]; if(cm) cm.mod = Date.now(); if(typeof scheduleSync === 'function') scheduleSync(); }
+  if(!(opt && opt.pref)){ S.dirty = true; const cm = S.cur && S.matches[S.cur]; if(cm){ cm.mod = Date.now(); try{ recordHist(cm); }catch(e){} } if(typeof scheduleSync === 'function') scheduleSync(); }
   clearTimeout(saveTimer);
   const f = () => { try{ localStorage.setItem(LS, JSON.stringify(S)); storageOK = true; }catch(e){ storageOK = false; } updSave(); };
   if(now) f(); else saveTimer = setTimeout(f, 250);
+}
+/* ---- Storico marcature: fotografia a ogni cambio, per sapere a posteriori chi marcava chi ---- */
+function histSnap(m){
+  const nO = id => { const o = id && m.our.find(p => p.id === id); return o ? o.n : null; };
+  const on = m.their.filter(q => q.on).sort((a, b) => a.n - b.n);
+  return {
+    ck: on.filter(q => q.ck).map(q => [q.n, nO(q.ck)]),
+    mk: on.filter(q => q.mk).map(q => [q.n, nO(q.mk)]),
+    sp: (m.sp || []).map(sch => [sch.id, sch.slots.map(sl => [sl.id, sl.p])]),
+    our: m.our.filter(o => o.st === 'tit').map(o => o.n).sort((a, b) => a - b),
+    opp: on.map(q => q.n)
+  };
+}
+function recordHist(m){
+  if(!m || !m.clock || !Array.isArray(m.their)) return;
+  const h = m.hist || (m.hist = []), snap = histSnap(m), key = JSON.stringify(snap), last = h[h.length - 1];
+  if(!started(m)){ const e = {half:1, sec:0, pre:true, s:snap}; if(last && last.pre) h[h.length - 1] = e; else if(!h.length) h.push(e); return; }
+  if(last && JSON.stringify(last.s) === key) return;
+  const half = m.clock.half, sec = Math.floor(elapsed(m));
+  if(last && !last.pre && last.half === half && Math.abs(sec - last.sec) < 20){ last.s = snap; return; }   // più modifiche ravvicinate = un solo cambio
+  h.push({half, sec, s:snap});
+}
+function histMin(m, half, sec){ const L = +m.halfLen || 40, mm = Math.floor(sec/60) + 1, base = half === 1 ? 0 : L; return mm <= L ? (base + mm) + "'" : (base + L) + '+' + (mm - L) + "'"; }
+function histAt(m, half, sec){ const h = m.hist || []; let r = null; h.forEach(e => { if(e.half < half || (e.half === half && e.sec <= sec)) r = e; }); return r; }
+function parseMin(m, t){
+  const L = +m.halfLen || 40, a = String(t || '').trim().match(/^(\d+)\s*(?:\+\s*(\d+))?/); if(!a) return null;
+  const mi = +a[1], plus = +(a[2] || 0);
+  if(mi <= L) return {half:1, sec:(mi - 1 + (mi === L ? plus : 0))*60 + 59};
+  return {half:2, sec:(mi - L - 1 + plus)*60 + 59};
+}
+function histDiff(m, a, b){ // testo dei cambi tra due fotografie
+  const out = [], name = n => { const o = m.our.find(p => p.n === n); return n + (o && fieldName(o) ? ' ' + fieldName(o) : ''); };
+  const cmp = (A, B, lab) => { const ma = new Map(A), mb = new Map(B);
+    new Set([...ma.keys(), ...mb.keys()]).forEach(k => { if(ma.get(k) !== mb.get(k)) out.push(`${lab} ${k}: ${ma.has(k) ? name(ma.get(k)) : '—'} → ${mb.has(k) ? name(mb.get(k)) : '—'}`); }); };
+  cmp(a.ck, b.ck, 'Corner, avv.'); cmp(a.mk, b.mk, 'Gioco, avv.');
+  const inn = b.our.filter(n => !a.our.includes(n)), outN = a.our.filter(n => !b.our.includes(n));
+  if(inn.length || outN.length) out.unshift(`Nostri: esce ${outN.join(', ') || '—'}, entra ${inn.join(', ') || '—'}`);
+  const oi = b.opp.filter(n => !a.opp.includes(n)), oo = a.opp.filter(n => !b.opp.includes(n));
+  if(oi.length || oo.length) out.unshift(`Loro: esce ${oo.join(', ') || '—'}, entra ${oi.join(', ') || '—'}`);
+  const sa = new Map(a.sp), sb = new Map(b.sp);
+  (m.sp || []).forEach(sch => { const x = new Map(sa.get(sch.id) || []), y = new Map(sb.get(sch.id) || []);
+    sch.slots.forEach(sl => { if(sl.type === 'markers') return; const fa = JSON.stringify(x.get(sl.id) || {}), fb = JSON.stringify(y.get(sl.id) || {});
+      if(fa !== fb){ const v = p => Object.entries(p || {}).map(([k, arr]) => (k === 'all' ? '' : k + ' ') + (arr.join(', ') || '—')).join(' / '); out.push(`${sch.name} · ${sl.label}: ${v(x.get(sl.id))} → ${v(y.get(sl.id))}`); } }); });
+  return out;
+}
+function renderHist(m){
+  const h = m.hist || [], L = +m.halfLen || 40;
+  if(!h.length) return `<div class="card"><h2>Chi marcava chi</h2><p class="hint">Lo storico parte da questa versione dell'app: da adesso ogni cambio di marcatura, compito o giocatore viene registrato col minuto.</p></div>`;
+  const q = UI.histMin ? parseMin(m, UI.histMin) : null, at = q ? histAt(m, q.half, q.sec) : h[h.length - 1];
+  const name = n => { const o = m.our.find(p => p.n === n); return `<b>${n}</b>${o && fieldName(o) ? ' ' + esc(fieldName(o)) : ''}`; };
+  const pairs = (arr, gk) => arr.length ? `<table class="mtable"><tbody>${arr.map(([o, u]) => `<tr><td><span class="bignum sm">${o}</span></td><td class="arrow">⟵</td><td>${u != null ? name(u) : '<span style="color:var(--warn)">nessuno</span>'}</td></tr>`).join('')}</tbody></table>` : '<p class="empty">Nessuna marcatura registrata.</p>';
+  const spBlock = at ? (m.sp || []).map(sch => { const sl = new Map((at.s.sp.find(x => x[0] === sch.id) || [null, []])[1]);
+    const rows = sch.slots.filter(x => x.type !== 'markers').map(x => { const p = sl.get(x.id) || {}; const v = Object.entries(p).map(([k, arr]) => (k === 'all' ? '' : (k === 'dx' ? 'da destra ' : 'da sinistra ')) + (arr.join(', ') || '—')).join(' · '); return `<li>${esc(x.label)}: <b>${v || '—'}</b></li>`; }).join('');
+    return rows ? `<h3>${esc(sch.name)}</h3><ul class="log">${rows}</ul>` : ''; }).join('') : '';
+  const changes = h.map((e, i) => i === 0 ? null : {e, d:histDiff(m, h[i-1].s, e.s)}).filter(x => x && x.d.length).reverse();
+  return `<div class="intgrid">
+    <div class="card wide"><h2>Chi marcava chi</h2>
+      <div class="row2" style="align-items:end"><label class="fld"><span>Minuto (es. 67 oppure 40+2)</span><input id="histMin" inputmode="numeric" value="${esc(UI.histMin || '')}" placeholder="adesso" data-enter="histGo" enterkeyhint="go"></label>
+      <div class="btnrow" style="margin:0"><button class="btn pri" data-act="histGo">Mostra</button><button class="btn" data-act="histNow">Adesso</button></div></div>
+      <p class="hint">${q ? `Situazione al <b>${histMin(m, q.half, q.sec)}</b> (${q.half}° tempo)` : 'Situazione attuale'}${at ? `, in vigore dal ${at.pre ? 'calcio d\'inizio' : histMin(m, at.half, at.sec)}` : ''}.</p>
+    </div>
+    ${at ? `<div class="card"><h2>Corner: marcatura a uomo</h2>${pairs(at.s.ck)}</div>
+    <div class="card"><h2>Compiti palle inattive</h2>${spBlock || '<p class="empty">—</p>'}</div>
+    <div class="card"><h2>Marcature in gioco</h2>${pairs(at.s.mk)}<p class="hint">In campo noi: ${at.s.our.join(', ') || '—'}<br>In campo loro: ${at.s.opp.join(', ') || '—'}</p></div>` : `<div class="card"><p class="empty">Nessun dato per quel minuto.</p></div>`}
+    <div class="card wide"><h2>Tutti i cambi</h2>${changes.length ? `<ul class="log">${changes.map(({e, d}) => `<li><b>${histMin(m, e.half, e.sec)}</b> ${d.map(esc).join('<br>')}</li>`).join('')}</ul>` : '<p class="empty">Nessun cambio durante la partita.</p>'}</div>
+  </div>`;
 }
 function updSave(){
   const el = $('#saveSt'); if(!el) return;
@@ -1386,10 +1452,11 @@ function setCk(ourId, oppId){
 function curSch(m){ return m.sp.find(x => x.id === UI.spTab); }
 
 function renderCorner(m){
-  if(UI.spTab !== 'alt' && !curSch(m)) UI.spTab = m.sp[0] ? m.sp[0].id : 'alt';
-  const tabs = [...m.sp.map(x => [x.id, x.name]), ['alt','Altezze avversari']];
+  if(UI.spTab !== 'alt' && UI.spTab !== 'hist' && !curSch(m)) UI.spTab = m.sp[0] ? m.sp[0].id : 'alt';
+  const tabs = [...m.sp.map(x => [x.id, x.name]), ['alt','Altezze avversari'], ['hist','Chi marcava chi']];
   const head = `<div class="sptabs">${tabs.map(([id,l]) => `<button class="${UI.spTab===id?'on':''}" data-act="spTab" data-v="${esc(id)}">${esc(l)}</button>`).join('')}<button data-act="spNew">＋ Schema</button></div>`;
   if(UI.spTab === 'alt') return head + renderHeights(m);
+  if(UI.spTab === 'hist') return head + renderHist(m);
   const sch = curSch(m);
   const sideSeg = sch.sides ? `<div class="seg"><button class="${UI.side==='dx'?'on':''}" data-act="side" data-v="dx">Da destra</button><button class="${UI.side==='sx'?'on':''}" data-act="side" data-v="sx">Da sinistra</button></div>` : '';
   const sopra = (sch.type === 'coff' && !UI.spEdit) ? `<div class="seg"><button disabled style="opacity:1">Loro sopra:</button>${[1,2,3].map(v => `<button class="${UI.sopra===v?'on':''}" data-act="sopra" data-v="${v}">${v}</button>`).join('')}</div>` : '';
@@ -1858,6 +1925,8 @@ const ACT = {
     });
   },
 
+  histGo(){ UI.histMin = ($('#histMin') || {}).value || ''; render(); },
+  histNow(){ UI.histMin = ''; render(); },
   spTab(el){ UI.spTab = el.dataset.v; UI.spEdit = false; render(); },
   side(el){ UI.side = el.dataset.v; render(); },
   sopra(el){ UI.sopra = +el.dataset.v; render(); },
