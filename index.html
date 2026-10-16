@@ -1830,7 +1830,6 @@ function renderArch(m){
     </div>
     <div class="card"><h2>Lingua</h2><div class="btnrow">${LANGS.map(([k,n]) => `<button class="btn ${k===LANG?'pri':''}" data-act="setLang" data-l="${k}" data-noi18n>${n}</button>`).join('')}</div><p class="hint">La lingua vale solo per questo dispositivo: i dati restano gli stessi per tutti.</p></div>
     <div class="card"><h2>Lavoro in squadra (in diretta)</h2>${fbCardHtml()}</div>
-    <div class="card"><h2>Dropbox</h2>${fbOn() ? '<p class="hint" style="margin-top:0">Non serve più: con il lavoro in squadra attivo i dati passano da lì. Il collegamento Dropbox resta salvato ma è in pausa.</p>' : dbxCardHtml()}</div>
     <div class="card"><h2>Importa / backup</h2>
       <label class="fld"><span>Importa un file di partita o un backup (.json)</span><input type="file" accept=".json,application/json" id="impFile"></label>
       <div class="btnrow"><button class="btn" data-act="exportAll">Esporta backup completo</button></div>
@@ -2379,7 +2378,7 @@ const DBXK = 'panchinaU16.dbx';
 let DBX = (() => { try{ return JSON.parse(localStorage.getItem(DBXK)) || {}; }catch(e){ return {}; } })();
 function dbxSave(){ try{ localStorage.setItem(DBXK, JSON.stringify(DBX)); }catch(e){} }
 const dbxKey = () => DBX_APP_KEY || DBX.key || '';
-const dbxOn = () => !fbOn() && !!(dbxKey() && DBX.refresh);
+const dbxOn = () => false;   /* Dropbox dismesso: i dati in squadra passano da Firebase (codice lasciato inattivo) */
 const SYNC = {state:'', msg:'', busy:false, timer:null};
 function setSync(state, msg){ SYNC.state = state; SYNC.msg = msg || ''; updSave(); const c = $('#dbxStatus'); if(c) c.innerHTML = dbxStatusText(); }
 function dbxStatusText(){
