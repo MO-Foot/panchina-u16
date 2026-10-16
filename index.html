@@ -112,7 +112,8 @@ main{padding:12px;padding-bottom:40px}
 .phrow.off{--phc:#f08a00}
 .campo3{display:grid;grid-template-columns:minmax(0,1fr) clamp(250px, 22vw, 330px) minmax(0,1fr);gap:16px;align-items:start}
 .campo3 .panel.mid{position:static;max-height:none;padding:12px}
-.campo3 .panel.mid .zn .tag{grid-template-columns:38px 1fr 38px;min-height:48px}
+.campo3 .panel.mid .zn .tag{grid-template-columns:30px 1fr 30px;min-height:48px}
+.campo3 .panel.mid .zn .tag button{white-space:nowrap;padding:2px}
 .campo3 .panel.mid .zn .tag button{font-size:.85rem}
 .campo3 .halves .halfwrap{flex:0 0 min(calc(50% - 6px), calc((100vh - 330px) * 52.5 / 68))}
 @media (max-width:980px){ .campo3{grid-template-columns:1fr} }
@@ -179,6 +180,8 @@ main{padding:12px;padding-bottom:40px}
 .zn .tag{grid-template-columns:44px 1fr 44px;min-height:52px}
 .zn .tag .tp,.zn .tag .tm{font-size:1.6rem}
 .zn .tag.full{grid-column:1/-1}
+.zn .tag.zdif{border-color:#1f5fd1}
+.zn .tag.zoff{border-color:#f08a00}
 .zn .last{list-style:none;margin:10px 0 0;padding:0;font-size:.9rem}
 .zn .last li{padding:5px 0;border-top:1px solid var(--line)}
 .zn .last .p{color:var(--ok);font-weight:700}.zn .last .m{color:var(--bad);font-weight:700}
@@ -479,7 +482,7 @@ const LS = 'panchinaU16.v1';
 const CATS = {
   noi: ['Costruzione dal basso','Sviluppo offensivo','Pressing uomo-uomo','Marcature','Transizione difensiva','Transizione offensiva','Palle inattive','Atteggiamento'],
   loro: ['Uscita dal pressing','Uomo libero','Spazio attaccabile','Giocatore pericoloso','Cambio di sistema','Lanci lunghi','Palle inattive (loro)','Il loro pressing'],
-  zona: ['OFF Z1','OFF Z2','OFF Z3','DIF Z1','DIF Z2','DIF Z3','IND.']   // Z1 = nostro terzo difensivo, Z2 = centrocampo, Z3 = terzo offensivo
+  zona: ['DIF Z1','DIF Z2','DIF Z3','OFF Z1','OFF Z2','OFF Z3','Individuali']   // Z1 = nostro terzo difensivo, Z2 = centrocampo, Z3 = terzo offensivo
 };
 const H_LAB = ['—','Alto','Molto alto'];
 const ROLES = ['Attacca palla','Blocco','1° palo','2° palo','Fuori area','Corto'];
@@ -618,7 +621,8 @@ function newMatch(){
     their: [], clock:{half:1, run:false, t0:null, el:0}, notes:[], msg:{1:['','',''], 2:['','','']}, sp:clone(S.spTpl || DEF_SP), plans:[], activePlan:null, created:Date.now()};
   S.matches[m.id] = m; S.cur = m.id; return m;
 }
-function M(){ if(!S.cur || !S.matches[S.cur]) newMatch(); const m = S.matches[S.cur]; if(!Array.isArray(m.sp)) m.sp = clone(S.spTpl || DEF_SP); if(!Array.isArray(m.plans)) m.plans = []; m.plans.forEach(migratePlan); return m; }
+function M(){ if(!S.cur || !S.matches[S.cur]) newMatch(); const m = S.matches[S.cur];
+  if(m.notes && m.notes.some(n => n.cat === 'IND.')) m.notes.forEach(n => { if(n.cat === 'IND.') n.cat = 'Individuali'; }); if(!Array.isArray(m.sp)) m.sp = clone(S.spTpl || DEF_SP); if(!Array.isArray(m.plans)) m.plans = []; m.plans.forEach(migratePlan); return m; }
 const ourBy = id => M().our.find(p => p.id === id);
 const fieldName = o => o ? String(o.fname || o.name || '').trim() : '';
 const mkChip = (o, n) => { const nm = fieldName(o); return `<span class="mk ${n != null ? '' : 'none'} ${nm ? 'wn' : ''}">${n ?? '?'}${nm ? `<i>${esc(nm)}</i>` : ''}</span>`; };
@@ -1058,10 +1062,10 @@ function benchHTML(m){
 }
 /* ---- Note rapide per zona (a destra del campo) ---- */
 function panelZone(m){
-  const tag = c => `<div class="tag ${c === 'IND.' ? 'full' : ''}"><button class="tp" data-act="zq" data-c="${c}" data-p="1" aria-label="${c}: bene">+</button><button data-act="zFull" data-c="${c}">${c}</button><button class="tm" data-act="zq" data-c="${c}" data-p="-1" aria-label="${c}: da correggere">−</button></div>`;
+  const tag = c => `<div class="tag ${c === 'Individuali' ? 'full' : /^DIF/.test(c) ? 'zdif' : 'zoff'}"><button class="tp" data-act="zq" data-c="${c}" data-p="1" aria-label="${c}: bene">+</button><button data-act="zFull" data-c="${c}">${c}</button><button class="tm" data-act="zq" data-c="${c}" data-p="-1" aria-label="${c}: da correggere">−</button></div>`;
   const last = m.notes.filter(n => n.side === 'zona').slice(-5).reverse();
   return `<div class="zn"><h3>Note rapide</h3>
-    <div class="tags">${CATS.zona.map(tag).join('')}</div>
+    <div class="tags">${['DIF Z1','OFF Z1','DIF Z2','OFF Z2','DIF Z3','OFF Z3','Individuali'].map(tag).join('')}</div>
     <p class="hint" style="margin:8px 0 0">+ / − salva subito. Tocca la scritta per scegliere il giocatore.</p>
     ${last.length ? `<ul class="last">${last.map(n => `<li><b>${n.min}</b> <span class="${n.pol > 0 ? 'p' : n.pol < 0 ? 'm' : ''}">${n.pol > 0 ? '＋' : n.pol < 0 ? '−' : ''} ${esc(n.cat)}</span>${n.text ? ' · ' + esc(n.text) : ''}</li>`).join('')}</ul>` : ''}
     <div class="actions">${oppOn(m).some(q => !q.mk && !(oppGK(m) && q.id === oppGK(m).id)) ? '<button class="btn pri" data-act="seqAssign">Abbina in sequenza</button>' : ''}<button class="btn" data-act="subsDo" data-side="our">⇄ Cambi nostri</button><button class="btn" data-act="subsDo" data-side="opp">⇄ Cambi avversari</button></div></div>`;
@@ -1843,7 +1847,7 @@ ${labels.map(([g, t]) => `    <label>
     </label>`).join('\n')}${free ? `\n    <free_text>${xmlTx(n.min + ' ' + free)}</free_text>` : ''}
   </instance>`;
   });
-  const col = c => /^OFF/.test(c) ? [8000, 46000, 16000] : /^DIF/.test(c) ? [6000, 26000, 60000] : /^IND/.test(c) ? [60000, 40000, 0] : [40000, 40000, 40000];
+  const col = c => /^OFF/.test(c) ? [8000, 46000, 16000] : /^DIF/.test(c) ? [6000, 26000, 60000] : /^(IND|Individuali)/.test(c) ? [60000, 40000, 0] : [40000, 40000, 40000];
   const order = [...CATS.zona, ...rows.filter(r => !CATS.zona.includes(r))].filter(r => rows.includes(r));
   return `<?xml version="1.0" encoding="UTF-8"?>
 <file>
