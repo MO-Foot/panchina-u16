@@ -2209,7 +2209,7 @@ const ACT = {
   async fbLoginGo(){
     const em = ($('#fbEm') || {}).value.trim(), pw = ($('#fbPw') || {}).value;
     if(!em || !pw) return toast('Scrivi email e password');
-    try{ await fbLogin(em, pw); render(); toast('Collegato: le partite si sincronizzano in diretta'); }
+    try{ await fbLogin(fbLoginId(em), pw); render(); toast('Collegato: le partite si sincronizzano in diretta'); }
     catch(e){ toast('Accesso non riuscito: ' + e.message); }
   },
   fbOut(){ confirmModal('Uscire dal lavoro in squadra?', 'Le partite restano su questo dispositivo, ma non si aggiornano più finché non rientri.', 'Esci', () => { fbLogout(); render(); }); },
@@ -2421,9 +2421,13 @@ function fbCfg(){ return {apiKey: FB.apiKey || FB_CFG.apiKey, db: String(FB.db |
 function fbOn(){ const c = fbCfg(); return !!(c.apiKey && c.db && FB.refresh); }
 function fbState(st, msg){ FBX.state = st; FBX.msg = msg || ''; updSave(); const c = $('#fbStatus'); if(c) c.innerHTML = fbStatusText(); }
 const fbEmailKey = e => String(e || '').toLowerCase().replace(/\./g, ',');
+/* nome utente senza @ → indirizzo interno del progetto (Firebase vuole un'email, ma non la verifica) */
+const FB_USER_DOMAIN = 'panchina-u16.firebaseapp.com';
+const fbLoginId = u => { u = String(u || '').trim().toLowerCase(); return u.includes('@') ? u : u + '@' + FB_USER_DOMAIN; };
+const fbShowUser = e => String(e || '').replace('@' + FB_USER_DOMAIN, '');
 function fbStatusText(){
   if(!fbOn()) return 'Non collegato';
-  if(FBX.state === 'live') return `<b style="color:var(--ok)">● In diretta</b> come ${esc(FB.email || '')}. Le modifiche arrivano a tutti in pochi secondi.`;
+  if(FBX.state === 'live') return `<b style="color:var(--ok)">● In diretta</b> come ${esc(fbShowUser(FB.email))}. Le modifiche arrivano a tutti in pochi secondi.`;
   if(FBX.state === 'conn') return 'Collegamento in corso…';
   if(FBX.state === 'denied') return `<b style="color:var(--bad)">Accesso non autorizzato.</b> Mo deve aggiungere nel database, sotto <b>staff</b>, la riga <code>${esc(fbEmailKey(FB.email))}</code> con valore <code>true</code>.`;
   if(FBX.state === 'err') return `<b style="color:var(--bad)">Errore:</b> ${esc(FBX.msg)}`;
@@ -2609,8 +2613,8 @@ function fbCardHtml(){
   if(!c.apiKey || !c.db) return `<p class="hint" style="margin-top:0">Per lavorare in più persone sulla stessa partita (assistente, match analyst, team manager…) serve un database Firebase, una volta sola. Incolla qui la configurazione che Firebase ti mostra (il blocco <code>firebaseConfig</code>).</p>
     <label class="fld"><span>Configurazione Firebase</span><textarea id="fbCfgTx" rows="5" placeholder="apiKey: &quot;…&quot;, databaseURL: &quot;https://….firebasedatabase.app&quot;"></textarea></label>
     <div class="btnrow"><button class="btn pri" data-act="fbCfgSave">Salva configurazione</button></div>`;
-  if(!FB.refresh) return `<p class="hint" style="margin-top:0">Entra con l'email e la password che Mo ti ha dato. Le partite di tutto lo staff arrivano su questo dispositivo.</p>
-    <div class="row2"><label class="fld"><span>Email</span><input id="fbEm" type="email" autocomplete="username" value="${esc(FB.email || '')}"></label><label class="fld"><span>Password</span><input id="fbPw" type="password" autocomplete="current-password" data-enter="fbLoginGo" enterkeyhint="go"></label></div>
+  if(!FB.refresh) return `<p class="hint" style="margin-top:0">Entra con il nome utente (o l'email) e la password che Mo ti ha dato. Le partite di tutto lo staff arrivano su questo dispositivo.</p>
+    <div class="row2"><label class="fld"><span>Utente o email</span><input id="fbEm" type="text" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username" value="${esc(fbShowUser(FB.email))}"></label><label class="fld"><span>Password</span><input id="fbPw" type="password" autocomplete="current-password" data-enter="fbLoginGo" enterkeyhint="go"></label></div>
     <div class="btnrow"><button class="btn pri" data-act="fbLoginGo">Entra</button>${FB_CFG.apiKey ? '' : '<button class="btn" data-act="fbCfgReset">Cambia configurazione</button>'}</div>`;
   return `<p id="fbStatus" style="margin-top:0">${fbStatusText()}</p>
     <p class="hint">Tutti vedono e modificano le stesse partite. Se due persone cambiano la stessa cosa nello stesso momento, resta l'ultima. Senza rete l'app continua a funzionare e invia tutto appena torna internet.</p>
