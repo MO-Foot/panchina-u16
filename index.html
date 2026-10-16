@@ -1003,7 +1003,7 @@ function ourMaster(m){
   const missing = tit.filter(o => !pos[o.id]);
   if(missing.length){
     const gk = ourGK(m), rest = tit.filter(o => o !== gk).sort(byN);
-    const nums = [gk ? gk.n : 'P', ...rest.map(o => o.n)], pl = boardPlace(nums, m.fOur || '4-3-3', 'our');
+    const nums = [gk ? gk.n : 'P', ...rest.map(o => o.n)], pl = boardPlace(nums, m.fOur || '4-3-3', 'our', true);
     const by = {}; [gk, ...rest].forEach((o, i) => { if(o && pl[i]) by[o.id] = {x:pl[i].x, y:pl[i].y}; });
     tit.forEach(o => { out[o.id] = pos[o.id] || by[o.id] || {x:30, y:50}; });
   } else tit.forEach(o => { out[o.id] = pos[o.id]; });
@@ -1581,8 +1581,9 @@ function boardNums(m, side){
   const gk = side === 'our' ? ourGK(m) : oppGK(m), rest = list.filter(p => p !== gk).map(p => p.n).slice(0, 10);
   const out = [gk ? gk.n : 'P', ...rest]; while(out.length < 11) out.push('–'); return out;
 }
-function boardPlace(nums, f, side){
-  const xs = (li, L) => { const d = L === 1 ? 16 : li * (32/(L-1)); return side === 'our' ? 15 + d : 85 - d; };
+function boardPlace(nums, f, side, full){
+  // full: su tutto il campo come gli avversari nel master (difesa ~20, attacco ~72); altrimenti ognuno nella sua metà
+  const xs = full ? (li, L) => side === 'our' ? 100 - campoX(li, L) : campoX(li, L) : (li, L) => { const d = L === 1 ? 16 : li * (32/(L-1)); return side === 'our' ? 15 + d : 85 - d; };
   const keyed = nums.map(n => typeof n === 'number' ? n : null);
   const pos = assignRoles(keyed.map((n, i) => n == null ? (i === 0 ? 1 : -1 - i) : n), rolePositions(f, side, xs));
   return nums.map((n, i) => ({n, x:(pos[i] || {x:50}).x, y:(pos[i] || {y:50}).y}));
