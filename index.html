@@ -629,7 +629,7 @@ function M(){ if(!S.cur || !S.matches[S.cur]) newMatch(); const m = S.matches[S.
 const ourBy = id => M().our.find(p => p.id === id);
 const fieldName = o => o ? String(o.fname || o.name || '').trim() : '';
 /* solo il cognome, per le etichette sui campi */
-const PARTICLES = new Set(['van','von','de','da','di','del','della','dos','das','le','la','du','der','den','ter','mac']);
+const PARTICLES = new Set(['van','von','de','da','dal','dalla','dalle','dai','dei','di','del','della','dello','degli','delle','do','dos','das','le','la','lo','du','der','den','ter','ten','mac','mc','st','st.','saint','san','santa','ben','bin','el','al','af','zu','zur','vom']);
 function surname(o){ if(!o) return ''; if(o.fname) return String(o.fname).trim(); const w = String(o.name || '').trim().split(/\s+/).filter(Boolean); if(w.length < 2) return w[0] || '';
   let i = w.length - 1; while(i > 0 && PARTICLES.has(w[i-1].toLowerCase())) i--; return w.slice(i).join(' '); }
 const nameTag = o => S.showNames && o && surname(o) ? `<span class="tn">${esc(surname(o))}</span>` : '';
