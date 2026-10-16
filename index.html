@@ -130,6 +130,9 @@ main{padding:12px;padding-bottom:40px}
 .pitch.half .hsvg{position:absolute;top:0;bottom:0;width:200%;pointer-events:none}
 .pitch.half .hsvg svg{position:absolute;inset:0;width:100%;height:100%}
 .phseg button{min-width:150px}
+.tok .tn{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:1px;font-size:max(10px, calc(var(--t) * .38));font-weight:700;color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000,0 0 1px #000;white-space:nowrap;pointer-events:none;line-height:1.05;font-family:var(--num)}
+.ntog{display:inline-flex;align-items:center;gap:6px;font-weight:700;min-height:44px;padding:0 8px;cursor:pointer}
+.ntog input{width:22px;height:22px;min-height:0}
 .mklines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .mklines line{stroke:#ffe14d;stroke-width:.45;stroke-dasharray:1.2 .8}
 .tok .mk.none{bottom:auto;top:-30%;left:auto;right:-35%;transform:none;min-width:0;width:calc(var(--t)*.55);height:calc(var(--t)*.55);border-radius:50%;padding:0}
@@ -625,6 +628,12 @@ function M(){ if(!S.cur || !S.matches[S.cur]) newMatch(); const m = S.matches[S.
   if(m.notes && m.notes.some(n => n.cat === 'IND.')) m.notes.forEach(n => { if(n.cat === 'IND.') n.cat = 'Individuali'; }); if(!Array.isArray(m.sp)) m.sp = clone(S.spTpl || DEF_SP); if(!Array.isArray(m.plans)) m.plans = []; m.plans.forEach(migratePlan); return m; }
 const ourBy = id => M().our.find(p => p.id === id);
 const fieldName = o => o ? String(o.fname || o.name || '').trim() : '';
+/* solo il cognome, per le etichette sui campi */
+const PARTICLES = new Set(['van','von','de','da','di','del','della','dos','das','le','la','du','der','den','ter','mac']);
+function surname(o){ if(!o) return ''; if(o.fname) return String(o.fname).trim(); const w = String(o.name || '').trim().split(/\s+/).filter(Boolean); if(w.length < 2) return w[0] || '';
+  let i = w.length - 1; while(i > 0 && PARTICLES.has(w[i-1].toLowerCase())) i--; return w.slice(i).join(' '); }
+const nameTag = o => S.showNames && o && surname(o) ? `<span class="tn">${esc(surname(o))}</span>` : '';
+const namesToggle = () => `<label class="ntog"><input type="checkbox" data-act="names" ${S.showNames ? 'checked' : ''}> Nomi</label>`;
 const mkChip = (o, n) => { const nm = fieldName(o); return `<span class="mk ${n != null ? '' : 'none'} ${nm ? 'wn' : ''}">${n ?? '?'}${nm ? `<i>${esc(nm)}</i>` : ''}</span>`; };
 const nOur = id => { const p = id && ourBy(id); return p ? p.n : null; };
 const oppBy = id => M().their.find(p => p.id === id);
@@ -915,7 +924,7 @@ function renderMaster(m){
   const gk = oppGK(m), ids = plan ? new Set(plan.slots.map(s => s.id)) : null;
   const toks = on.map(p => {
     const mk = nOur(p.mk), isGK = gk && p.id === gk.id, unp = plan && !ids.has(p.slot);
-    return `<div class="tok ${isGK?'gk':''} ${p.id===UI.sel?'sel':''} ${p.pb?'pb':''} ${unp?'unplaced':''}" data-tok="${p.id}" style="left:${p.x}%;top:${p.y}%">${p.n}${p.pb?'<span class="pbm">!</span>':''}</div>`;
+    return `<div class="tok ${isGK?'gk':''} ${p.id===UI.sel?'sel':''} ${p.pb?'pb':''} ${unp?'unplaced':''}" data-tok="${p.id}" style="left:${p.x}%;top:${p.y}%">${p.n}${p.pb?'<span class="pbm">!</span>':''}${nameTag(p)}</div>`;
   }).join('');
   const trace = plan ? on.map(p => { const s = plan.slots.find(x => x.id === p.slot); if(!s || Math.hypot(p.x - s.x, p.y - s.y) < 4) return ''; return `<circle cx="${(s.x*1.05).toFixed(2)}" cy="${(s.y*.68).toFixed(2)}" r="2.2"/><line x1="${(s.x*1.05).toFixed(2)}" y1="${(s.y*.68).toFixed(2)}" x2="${(p.x*1.05).toFixed(2)}" y2="${(p.y*.68).toFixed(2)}"/>`; }).join('') : '';
   const ghosts = plan ? plan.slots.filter(s => !occupant(m, s)).map(s => `<div class="tok ghost ${s.gk?'gkg':''}" data-slot="${s.id}" style="left:${s.x}%;top:${s.y}%">+${s.gk || s.mk == null ? '' : mkChip(ourByN(s.mk), s.mk)}</div>`).join('') : '';
@@ -924,9 +933,9 @@ function renderMaster(m){
   const empty = plan ? plan.slots.filter(s => !s.gk && !occupant(m, s)).length : 0;
   const unplaced = plan ? on.filter(p => !ids.has(p.slot)) : [];
   const om = ourMaster(m), ogk = ourGK(m);
-  const ourToks = field(m).map(o => { const q = om[o.id]; if(!q) return ''; return `<div class="tok ourt ${o === ogk ? 'ourgk' : ''}" data-our="${o.id}" style="left:${q.x}%;top:${q.y}%">${o.n}</div>`; }).join('');
+  const ourToks = field(m).map(o => { const q = om[o.id]; if(!q) return ''; return `<div class="tok ourt ${o === ogk ? 'ourgk' : ''}" data-our="${o.id}" style="left:${q.x}%;top:${q.y}%">${o.n}${nameTag(o)}</div>`; }).join('');
   const fsel = (k, v) => `<select data-mf="${k}" aria-label="Modulo">${Object.keys(FORM).map(f => `<option value="${f}" ${f===v?'selected':''}>1-${f}</option>`).join('')}</select>`;
-  return planBar(m) + `<div class="mbar"><label class="bsel"><span class="sw our"></span>Noi ${fsel('fOur', m.fOur || '4-3-3')}</label>${plan ? '' : `<label class="bsel"><span class="sw opp"></span>Loro ${fsel('formation', m.formation || '4-4-2')}</label>`}</div>
+  return planBar(m) + `<div class="mbar">${namesToggle()}<label class="bsel"><span class="sw our"></span>Noi ${fsel('fOur', m.fOur || '4-3-3')}</label>${plan ? '' : `<label class="bsel"><span class="sw opp"></span>Loro ${fsel('formation', m.formation || '4-4-2')}</label>`}</div>
   <div class="mastercol">
     <div class="pitchwrap">
       <div class="pitch ${m.flip?'flip':''}" id="pitch">${PITCH_SVG}${ghosts}${ourToks}${toks}</div>
@@ -989,10 +998,10 @@ function halfHTML(m, P, flip){
   const vis = q => q && q.x >= x0 && q.x <= x0 + 50;
   const L = q => `left:${((q.x - x0)*2).toFixed(2)}%;top:${q.y}%`;
   const opp = oppOn(m).map(p => { const q = pos.opp[p.id]; if(!vis(q)) return ''; const isGK = gk && p.id === gk.id, mk = nOur(p.mk);
-    return `<div class="tok ${isGK ? 'gk' : ''} ${p.id === UI.sel ? 'sel' : ''} ${high && p.pb ? 'pb' : ''}" data-ph="${P.k}" data-team="opp" data-tok="${p.id}" style="${L(q)}">${p.n}${high && p.pb ? '<span class="pbm">!</span>' : ''}${high && !isGK && !p.mk ? '<span class="mk none">?</span>' : ''}</div>`; }).join('');
+    return `<div class="tok ${isGK ? 'gk' : ''} ${p.id === UI.sel ? 'sel' : ''} ${high && p.pb ? 'pb' : ''}" data-ph="${P.k}" data-team="opp" data-tok="${p.id}" style="${L(q)}">${p.n}${high && p.pb ? '<span class="pbm">!</span>' : ''}${high && !isGK && !p.mk ? '<span class="mk none">?</span>' : ''}${nameTag(p)}</div>`; }).join('');
   const lines = high ? oppOn(m).map(p => { const a = pos.opp[p.id], o = p.mk && ourBy(p.mk), b = o && pos.our[o.id]; if(!vis(a) || !vis(b)) return '';
     return `<line x1="${((a.x - x0)*1.05).toFixed(2)}" y1="${(a.y*.68).toFixed(2)}" x2="${((b.x - x0)*1.05).toFixed(2)}" y2="${(b.y*.68).toFixed(2)}"/>`; }).join('') : '';
-  const our = field(m).map(o => { const q = pos.our[o.id]; if(!vis(q)) return ''; return `<div class="tok ourt ${o === ogk ? 'ourgk' : ''}" data-ph="${P.k}" data-team="our" data-pid="${o.id}" style="${L(q)}">${o.n}</div>`; }).join('');
+  const our = field(m).map(o => { const q = pos.our[o.id]; if(!vis(q)) return ''; return `<div class="tok ourt ${o === ogk ? 'ourgk' : ''}" data-ph="${P.k}" data-team="our" data-pid="${o.id}" style="${L(q)}">${o.n}${nameTag(o)}</div>`; }).join('');
   return `<div class="halfwrap"><div class="hlab">${esc(P.lab)}</div><div class="pitch half ${flip ? 'flip' : ''}" data-ph="${P.k}" data-x0="${x0}"><div class="hsvg" style="left:${x0 ? '-100%' : '0'}">${PITCH_SVG}</div><div class="atk" aria-hidden="true">➜</div>${lines ? `<svg class="mklines" viewBox="0 0 52.5 68" preserveAspectRatio="none">${lines}</svg>` : ''}${our}${opp}</div></div>`;
 }
 function renderCampo(m){
@@ -1005,7 +1014,7 @@ function renderCampo(m){
   const plans = m.plans || [];
   return `<div class="planbar"><span class="pl">Sistema avversario</span>
     ${plans.map(p => `<button class="plchip ${m.activePlan === p.id ? 'on' : ''}" data-act="planAct" data-id="${p.id}">${esc(p.name)}</button>`).join('')}
-    <span style="flex:1"></span><button class="btn" data-act="phReset" title="Riporta le pedine di questo campo alla formazione del master">↺ Dal master</button>${tokSizer()}<button class="btn ${m.flip ? 'pri' : ''}" data-act="flip" title="Gira il campo come lo vedi dalla panchina">⟲ Gira campo</button></div>
+    <span style="flex:1"></span><button class="btn" data-act="phReset" title="Riporta le pedine di questo campo alla formazione del master">↺ Dal master</button>${namesToggle()}${tokSizer()}<button class="btn ${m.flip ? 'pri' : ''}" data-act="flip" title="Gira il campo come lo vedi dalla panchina">⟲ Gira campo</button></div>
   <div class="campo3">
     ${(() => { const blk = ([t, phs, c]) => `<div class="phrow ${c}"><div class="phtitle">${t}</div><div class="halves">${(m.flip ? [phs[1], phs[0]] : phs).map(P => halfHTML(m, P, m.flip)).join('')}</div></div>`;
       return blk(rows[0]) + `<aside class="card panel mid">${UI.sel ? panelSel(m, oppBy(UI.sel)) : panelZone(m)}</aside>` + blk(rows[1]); })()}
@@ -2076,6 +2085,7 @@ const ACT = {
   kpN(el){ kpCommit(+el.dataset.n); },
   kpSkip(){ const m = M(), plan = activePlan(m), sid = MC.slotId; closeModal(); const nx = nextEmptySlot(m, plan, sid); if(nx && nx.id !== sid) openKeypad(nx.id); },
   sel(el){ UI.sel = el.dataset.id; render(); },
+  names(){ S.showNames = !S.showNames; save(true, {pref:true}); render(); },
   phase(el){ UI.phase = el.dataset.v; UI.sel = null; render(); },
   phReset(){ const m = M(); confirmModal('Riportare al master?', 'Le pedine di tutte e 4 le fasi tornano alle posizioni ricavate dalla formazione del master.', 'Riporta', () => { m.ph = {}; save(); render(); toast('Fasi riallineate al master'); }); },
   desel(){ UI.sel = null; render(); },
