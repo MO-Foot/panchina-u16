@@ -104,7 +104,8 @@ main{padding:12px;padding-bottom:40px}
 .mbar{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 8px}
 .mastercol .pitch{width:100%}
 .mpanel{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
-.tok.ourt.ourgk{background:var(--opp-gk);color:#fff;box-shadow:0 0 0 2px var(--our),0 2px 6px rgba(0,0,0,.35)}
+.tok.ourt.ourgk{background:var(--our);color:var(--our-ink);border:3px solid var(--gk-b-our,#1f5fd1);box-shadow:0 0 0 1px #fff,0 2px 6px rgba(0,0,0,.35)}
+:root[data-theme="blu"]{--gk-b-our:#ff8a00}
 .halves{display:flex;justify-content:center;gap:12px;width:100%}
 .phrows{display:flex;gap:40px;width:100%;justify-content:center}
 .phrow{flex:1 1 0;min-width:0;border:4px solid var(--phc);border-radius:14px;padding:4px 6px 8px;position:relative;--phc:#1f5fd1}
@@ -156,7 +157,7 @@ main{padding:12px;padding-bottom:40px}
 .pitch svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .pitchfoot{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;width:100%;margin-top:8px;font-size:.88rem;color:var(--muted)}
 .tok{position:absolute;transform:translate(-50%,-50%);width:var(--t);height:var(--t);border-radius:50%;background:var(--opp-tok,var(--opp));color:var(--opp-tok-ink,var(--opp-ink));border:2px solid rgba(255,255,255,.95);display:grid;place-items:center;font-weight:700;font-size:calc(var(--t)*.5);box-shadow:0 2px 6px rgba(0,0,0,.35);touch-action:none;cursor:grab}
-.tok.gk{background:var(--opp-gk);color:#fff}
+.tok.gk{background:var(--opp-tok,var(--opp));color:var(--opp-tok-ink,var(--opp-ink));border:3px solid var(--gk-b-opp,#1f5fd1);box-shadow:0 0 0 1px #fff,0 2px 6px rgba(0,0,0,.35)}
 .tok.sel{outline:4px solid #ffe14d;outline-offset:2px;z-index:5}
 .tok.pb{border-color:var(--warn);box-shadow:0 0 0 4px var(--warn),0 2px 6px rgba(0,0,0,.35)}
 .tok .mk{position:absolute;bottom:calc(var(--t)*-.3);left:50%;transform:translateX(-50%);min-width:calc(var(--t)*.6);height:calc(var(--t)*.52);padding:0 4px;border-radius:7px;background:var(--our);color:var(--our-ink);border:2px solid #fff;font-size:calc(var(--t)*.4);display:grid;place-items:center;line-height:1}
@@ -305,7 +306,7 @@ svg.trace circle{fill:none;stroke:#fff;stroke-width:.35;stroke-dasharray:1 .8;op
 .tok.ghost.gkg{opacity:.7}
 .tok.unplaced{opacity:.6;border-style:dashed}
 .tok.slot{background:rgba(0,0,0,.38);color:#fff;font-size:calc(var(--t)*.42)}
-.tok.slot.gk{background:var(--opp-gk)}
+.tok.slot.gk{background:var(--opp);border:3px solid var(--gk-b-opp,#1f5fd1)}
 .plus{display:inline-grid;place-items:center;width:24px;height:24px;border:2px dashed currentColor;border-radius:50%;font-size:.9rem}
 .kpdisp{font-family:var(--num);font-size:3.6rem;font-weight:700;text-align:center;border:2px solid var(--line);border-radius:12px;min-height:80px;line-height:76px;margin:12px 0 10px}
 .kp{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
@@ -1463,6 +1464,9 @@ function applyKitVars(m){
   const st = document.documentElement.style, k = m && m.kit;
   if(k){ st.setProperty('--opp-tok', kitBg(k)); st.setProperty('--opp-tok-ink', k.ink); }
   else { st.removeProperty('--opp-tok'); st.removeProperty('--opp-tok-ink'); }
+  // portiere: stesso colore della squadra, bordo blu (arancione se la maglia è già blu)
+  const bluish = c => { const h = String(c || '').replace('#', ''); if(h.length < 6) return false; const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16); return b > 90 && b > r + 30 && b >= g; };
+  st.setProperty('--gk-b-opp', k && (bluish(k.c1) || (!k.pat && bluish(k.c2) && false)) ? '#ff8a00' : '#1f5fd1');
 }
 function kitModal(){
   const m = M(), cur = m.kit;
