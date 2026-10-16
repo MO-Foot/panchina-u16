@@ -331,6 +331,12 @@ svg.trace circle{fill:none;stroke:#fff;stroke-width:.35;stroke-dasharray:1 .8;op
 .spc.dim{opacity:.5}
 .spc.empty{border-top-color:var(--line)}
 .spl{font-size:.95rem;font-weight:650;color:var(--muted);line-height:1.2}
+.corner2{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.ccol{border:4px solid var(--phc);border-radius:14px;padding:10px 12px;--phc:#1f5fd1;min-width:0}
+.ccol.off{--phc:#f08a00}
+.ccol .cch{color:var(--phc);margin:0 0 6px}
+.ccol .spgrid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+@media (max-width:980px){ .corner2{grid-template-columns:1fr} }
 .spn{display:flex;flex-wrap:wrap;gap:14px;margin-top:6px;align-items:center}
 .pnb{background:none;border:0;padding:2px 4px;margin:-2px -4px;font:inherit;color:inherit;cursor:pointer;text-align:left;border-radius:8px}
 .pnb:hover,.pnb:active{background:var(--line)}
@@ -1632,19 +1638,32 @@ function setCk(ourId, oppId){
   if(prevOpp) prevOpp.ck = null;
   if(target){ target.ck = ourId; if(prevOpp && targetPrev && targetPrev !== ourId) prevOpp.ck = targetPrev; }
 }
-function curSch(m){ return m.sp.find(x => x.id === UI.spTab); }
+function curSch(m){ return m.sp.find(x => x.id === (UI.ctxSch || UI.spTab)); }
+const cornerPair = m => [m.sp.find(x => x.type === 'cdif'), m.sp.find(x => x.type === 'coff')];
+function spBar(m, sch){
+  const ed = UI.spEdit === sch.id;
+  const sideSeg = sch.sides ? `<div class="seg"><button class="${UI.side==='dx'?'on':''}" data-act="side" data-v="dx">Da destra</button><button class="${UI.side==='sx'?'on':''}" data-act="side" data-v="sx">Da sinistra</button></div>` : '';
+  const sopra = (sch.type === 'coff' && !ed) ? `<div class="seg"><button disabled style="opacity:1">Loro sopra:</button>${[1,2,3].map(v => `<button class="${UI.sopra===v?'on':''}" data-act="sopra" data-v="${v}">${v}</button>`).join('')}</div>` : '';
+  return `<div class="ctop">${sideSeg}${sopra}<span style="flex:1"></span><button class="btn ${ed?'pri':''}" data-act="spEditT">${ed ? '✓ Fine modifica' : '✎ Modifica schema'}</button></div>`;
+}
 
 function renderCorner(m){
-  if(UI.spTab !== 'alt' && UI.spTab !== 'hist' && !curSch(m)) UI.spTab = m.sp[0] ? m.sp[0].id : 'alt';
-  const tabs = [...m.sp.map(x => [x.id, x.name]), ['alt','Altezze avversari'], ['hist','Chi marcava chi']];
+  UI.ctxSch = null;
+  const [cd, co] = cornerPair(m), pair = cd && co;
+  if(pair && (UI.spTab === cd.id || UI.spTab === co.id)) UI.spTab = 'corner';
+  if(!['alt', 'hist', 'corner'].includes(UI.spTab) && !curSch(m)) UI.spTab = pair ? 'corner' : (m.sp[0] ? m.sp[0].id : 'alt');
+  if(UI.spTab === 'corner' && !pair) UI.spTab = m.sp[0] ? m.sp[0].id : 'alt';
+  const tabs = [...(pair ? [['corner', 'Corner']] : []), ...m.sp.filter(x => !pair || (x !== cd && x !== co)).map(x => [x.id, x.name]), ['alt','Altezze avversari'], ['hist','Chi marcava chi']];
   const head = `<div class="sptabs">${tabs.map(([id,l]) => `<button class="${UI.spTab===id?'on':''}" data-act="spTab" data-v="${esc(id)}">${esc(l)}</button>`).join('')}<button data-act="spNew">＋ Schema</button></div>`;
   if(UI.spTab === 'alt') return head + renderHeights(m);
   if(UI.spTab === 'hist') return head + renderHist(m);
+  if(UI.spTab === 'corner'){
+    const col = (sch, t, c) => { UI.ctxSch = sch.id; const body = UI.spEdit === sch.id ? spEditor(m, sch) : spView(m, sch); UI.ctxSch = null;
+      return `<div class="ccol ${c}" data-sch="${sch.id}"><h2 class="cch">${t}</h2>${spBar(m, sch)}${body}</div>`; };
+    return head + `<div class="corner2">${col(cd, 'Difesa', 'dif')}${col(co, 'Attacco', 'off')}</div>`;
+  }
   const sch = curSch(m);
-  const sideSeg = sch.sides ? `<div class="seg"><button class="${UI.side==='dx'?'on':''}" data-act="side" data-v="dx">Da destra</button><button class="${UI.side==='sx'?'on':''}" data-act="side" data-v="sx">Da sinistra</button></div>` : '';
-  const sopra = (sch.type === 'coff' && !UI.spEdit) ? `<div class="seg"><button disabled style="opacity:1">Loro sopra:</button>${[1,2,3].map(v => `<button class="${UI.sopra===v?'on':''}" data-act="sopra" data-v="${v}">${v}</button>`).join('')}</div>` : '';
-  const bar = `<div class="ctop">${sideSeg}${sopra}<span style="flex:1"></span><button class="btn ${UI.spEdit?'pri':''}" data-act="spEditT">${UI.spEdit ? '✓ Fine modifica' : '✎ Modifica schema'}</button></div>`;
-  return head + bar + (UI.spEdit ? spEditor(m, sch) : spView(m, sch));
+  return head + spBar(m, sch) + (UI.spEdit === sch.id ? spEditor(m, sch) : spView(m, sch));
 }
 function spCard(label, arr, cls, sl){
   if(!sl) return `<div class="spc ${cls||''} ${arr.length?'':'empty'}"><div class="spl">${esc(label)}</div><div class="spn">${arr.map(pn).join('') || '<span class="hint" style="color:var(--warn)">da assegnare</span>'}</div></div>`;
@@ -2118,7 +2137,7 @@ const ACT = {
   spTab(el){ UI.spTab = el.dataset.v; UI.spEdit = false; render(); },
   side(el){ UI.side = el.dataset.v; render(); },
   sopra(el){ UI.sopra = +el.dataset.v; render(); },
-  spEditT(){ UI.spEdit = !UI.spEdit; render(); },
+  spEditT(){ const sch = curSch(M()); UI.spEdit = sch && UI.spEdit !== sch.id ? sch.id : false; render(); },
   spCk(el){
     const m = M(), n = +el.dataset.n, o = ourByN(n);
     if(!o){ // numero dello schema che non c'è in questa partita: scegli chi lo sostituisce, poi l'avversario
@@ -2264,6 +2283,7 @@ const ACT = {
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if(!el) return;
   if(el.closest('#sheet') && ghostClick()) return;
+  if(!el.closest('#sheet')){ const sc = el.closest('[data-sch]'); UI.ctxSch = sc ? sc.dataset.sch : null; }
   const f = ACT[el.dataset.act]; if(f){ f(el, e); }
 });
 document.addEventListener('input', e => {
@@ -2274,8 +2294,8 @@ document.addEventListener('input', e => {
   else if(t.dataset.planname){ const pl = (m.plans || []).find(p => p.id === UI.editPlan); if(pl){ pl.name = t.value; save(); } }
   else if(t.id === 'kitQ'){ const q = t.value.trim().toLowerCase(); document.querySelectorAll('#kitTeams .kbtn').forEach(b => { b.hidden = !!q && !b.dataset.q.includes(q); }); }
   else if(['kC1','kC2','kInk'].includes(t.id)){ $('#kPrev').innerHTML = kitDot({c1:$('#kC1').value, c2:$('#kC2').value, ink:$('#kInk').value, pat:$('#kPat').value}, 40); }
-  else if(t.dataset.spname){ const sch = curSch(m); if(sch){ sch.name = t.value; save(); } }
-  else if(t.dataset.sl && t.tagName === 'INPUT'){ const sch = curSch(m), sl = sch && sch.slots.find(x => x.id === t.dataset.sl); if(sl){ sl.label = t.value; save(); } }
+  else if(t.dataset.spname){ const sc = t.closest('[data-sch]'); UI.ctxSch = sc ? sc.dataset.sch : null; const sch = curSch(m); if(sch){ sch.name = t.value; save(); } }
+  else if(t.dataset.sl && t.tagName === 'INPUT'){ const sc = t.closest('[data-sch]'); UI.ctxSch = sc ? sc.dataset.sch : null; const sch = curSch(m), sl = sch && sch.slots.find(x => x.id === t.dataset.sl); if(sl){ sl.label = t.value; save(); } }
 });
 document.addEventListener('change', e => {
   if(e.target.dataset.f === 'formation'){ render(); }
