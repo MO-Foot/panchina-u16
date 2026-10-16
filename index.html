@@ -113,9 +113,11 @@ main{padding:12px;padding-bottom:40px}
 .pchip.opp.off em{color:var(--muted)}
 
 /* Campo */
-.campo{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:12px;align-items:start}
+.campo{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:12px;align-items:start}
 .pitchwrap{display:flex;flex-direction:column;align-items:center}
-.pitch{position:relative;width:min(100%, calc((100vh - 200px) * 105 / 68));aspect-ratio:105/68;border-radius:12px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;
+.pitch{position:relative;width:min(100%, calc((100vh - 200px) * 105 / 68));}
+.campo .pitch{width:min(100%, calc((100vh - 290px) * 105 / 68));}
+.pitch{aspect-ratio:105/68;border-radius:12px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;
   background:repeating-linear-gradient(90deg,var(--pitch) 0 9.52%,var(--pitch2) 9.52% 19.04%)}
 .pitch svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .pitchfoot{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;width:100%;margin-top:8px;font-size:.88rem;color:var(--muted)}
@@ -130,6 +132,27 @@ main{padding:12px;padding-bottom:40px}
 .tok .pbm{position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;background:var(--warn);font-size:.85rem;display:grid;place-items:center;border:2px solid #fff}
 .tok.dragging{cursor:grabbing;z-index:9;opacity:.9}
 .panel{position:sticky;top:130px;max-height:calc(100vh - 142px);overflow:auto}
+.bench{display:flex;flex-wrap:wrap;align-items:center;gap:6px;width:100%;margin-top:8px;padding:8px 10px;border:2px dashed var(--line);border-radius:12px;background:var(--surface2);touch-action:none;user-select:none;-webkit-user-select:none}
+.bench.hot{border-color:var(--warn);background:var(--surface)}
+.bench .bl{font-size:.8rem;font-weight:700;color:var(--muted);margin-right:4px}
+.btok{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-family:var(--num);font-weight:700;font-size:1.05rem;background:var(--opp-tok,var(--opp));color:var(--opp-tok-ink,var(--opp-ink));border:2px solid rgba(255,255,255,.9);box-shadow:0 1px 3px rgba(0,0,0,.25);cursor:grab;touch-action:none}
+.btok.nm{box-shadow:0 0 0 2px var(--our),0 1px 3px rgba(0,0,0,.25)}
+.btok.ex{opacity:.35}
+.btok.fly{position:fixed;z-index:80;transform:translate(-50%,-50%);pointer-events:none;width:var(--t);height:var(--t);font-size:calc(var(--t)*.5)}
+.zn h3{margin:0 0 8px}
+.zn .tags{grid-template-columns:1fr 1fr;gap:6px}
+.zn .tag{grid-template-columns:44px 1fr 44px;min-height:52px}
+.zn .tag .tp,.zn .tag .tm{font-size:1.6rem}
+.zn .tag.full{grid-column:1/-1}
+.zn .last{list-style:none;margin:10px 0 0;padding:0;font-size:.9rem}
+.zn .last li{padding:5px 0;border-top:1px solid var(--line)}
+.zn .last .p{color:var(--ok);font-weight:700}.zn .last .m{color:var(--bad);font-weight:700}
+.zn .actions{margin-top:10px}
+.polseg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:6px 0 12px}
+.polseg button{min-height:52px;border-radius:12px;border:2px solid var(--line);background:var(--surface2);font-weight:700;font-size:1.05rem}
+.polseg button.on.p{background:var(--ok);color:#fff;border-color:var(--ok)}
+.polseg button.on.z{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.polseg button.on.m{background:var(--bad);color:#fff;border-color:var(--bad)}
 .selhead{display:flex;align-items:center;gap:12px}
 .bignum{display:inline-grid;place-items:center;min-width:56px;height:56px;padding:0 8px;border-radius:14px;font-weight:700;font-size:2rem;color:var(--opp-ink);background:var(--opp)}
 .bignum.our{background:var(--our);color:var(--our-ink)}
@@ -420,7 +443,8 @@ svg.trace circle{fill:none;stroke:#fff;stroke-width:.35;stroke-dasharray:1 .8;op
 const LS = 'panchinaU16.v1';
 const CATS = {
   noi: ['Costruzione dal basso','Sviluppo offensivo','Pressing uomo-uomo','Marcature','Transizione difensiva','Transizione offensiva','Palle inattive','Atteggiamento'],
-  loro: ['Uscita dal pressing','Uomo libero','Spazio attaccabile','Giocatore pericoloso','Cambio di sistema','Lanci lunghi','Palle inattive (loro)','Il loro pressing']
+  loro: ['Uscita dal pressing','Uomo libero','Spazio attaccabile','Giocatore pericoloso','Cambio di sistema','Lanci lunghi','Palle inattive (loro)','Il loro pressing'],
+  zona: ['OFF Z1','OFF Z2','OFF Z3','DIF Z1','DIF Z2','DIF Z3','IND.']   // Z1 = nostro terzo difensivo, Z2 = centrocampo, Z3 = terzo offensivo
 };
 const H_LAB = ['—','Alto','Molto alto'];
 const ROLES = ['Attacca palla','Blocco','1° palo','2° palo','Fuori area','Corto'];
@@ -575,7 +599,7 @@ function render(){
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === S.view));
   const V = {pre:renderPre, campo:renderCampo, board:renderBoard, corner:renderCorner, note:renderNote, int:renderInt, arch:renderArch}[S.view] || renderPre;
   $('#main').innerHTML = V(m);
-  if(S.view === 'campo') bindPitch();
+  if(S.view === 'campo'){ bindPitch(); bindBench(); }
   if(S.view === 'board') bindBoard();
   const dl = $('#dbxLink'); if(dl) dbxAuthUrl().then(u => { dl.href = u; const ui = $('#dbxUrl'); if(ui) ui.value = u; }).catch(e => { const ui = $('#dbxUrl'); if(ui) ui.value = 'Errore: ' + (e && e.message || e); });
   tick(); updSave();
@@ -755,7 +779,7 @@ function activatePlan(m, plan){
   const on = oppOn(m); if(!on.length){ save(); return 0; }
   const free = new Set(plan.slots.map(s => s.id)), done = new Set();
   const assignTo = (q, s) => { Object.assign(q, {x:s.x, y:s.y, slot:s.id, mk:ourIdByN(s.mk), gk:!!s.gk}); free.delete(s.id); done.add(q.id); };
-  const gkS = plan.slots.find(s => s.gk), gkQ = on.find(q => q.gk);
+  const gkS = plan.slots.find(s => s.gk), gkQ = on.find(q => q.gk) || oppGK(m);
   if(gkS && gkQ) assignTo(gkQ, gkS);
   const pairs = [];
   on.forEach(q => { if(done.has(q.id) || q.x == null) return; plan.slots.forEach(s => { if(!s.gk) pairs.push([Math.hypot((q.x - s.x)*1.05, (q.y - s.y)*.68), q, s]); }); });
@@ -777,7 +801,7 @@ function renderCampo(m){
   if(UI.planEdit) return planBar(m) + renderPlanEdit(m);
   const plan = activePlan(m), on = oppOn(m);
   if(!plan) ensurePositions(m);
-  if(!on.length && !plan) return planBar(m) + `<div class="card"><h2>Ancora nessun avversario in campo</h2><p class="hint">Prepara i piani di marcatura per i sistemi che l'avversario può usare: in partita scegli il sistema e inserisci i numeri toccando le posizioni. Oppure inserisci i numeri nella scheda Pre-partita.</p><div class="btnrow"><button class="btn pri" data-act="planEditT">✎ Prepara piani</button><button class="btn" data-act="view" data-v="pre">Vai a Pre-partita</button></div></div>`;
+  if(false) return planBar(m) + `<div class="card"><h2>Ancora nessun avversario in campo</h2><p class="hint">Prepara i piani di marcatura per i sistemi che l'avversario può usare: in partita scegli il sistema e inserisci i numeri toccando le posizioni. Oppure inserisci i numeri nella scheda Pre-partita.</p><div class="btnrow"><button class="btn pri" data-act="planEditT">✎ Prepara piani</button><button class="btn" data-act="view" data-v="pre">Vai a Pre-partita</button></div></div>`;
   if(UI.sel && !on.some(p => p.id === UI.sel)) UI.sel = null;
   const gk = oppGK(m), ids = plan ? new Set(plan.slots.map(s => s.id)) : null;
   const toks = on.map(p => {
@@ -793,11 +817,113 @@ function renderCampo(m){
   return planBar(m) + `<div class="campo">
     <div class="pitchwrap">
       <div class="pitch ${m.flip?'flip':''}" id="pitch">${PITCH_SVG}${trace ? `<svg class="trace" viewBox="0 0 105 68" preserveAspectRatio="none">${trace}</svg>` : ''}${ghosts}${toks}</div>
-      <div class="pitchfoot"><span>${plan && empty ? `<b>Tocca un <span class="plus">+</span> per inserire il numero (${empty} posizioni vuote)</b>` : (m.flip ? 'La nostra porta ⟶' : '⟵ La nostra porta') + '. Trascina un giocatore per spostarlo, toccalo per selezionarlo, doppio tocco per il cambio.'}</span>
+      ${benchHTML(m)}
+      <div class="pitchfoot"><span>${!on.length ? '<b>Trascina i numeri dalla panchina sul campo: con 11 giocatori l\'app riconosce il sistema e applica il piano preparato.</b>' : plan && empty ? `<b>Tocca un <span class="plus">+</span> per inserire il numero (${empty} posizioni vuote)</b>` : (m.flip ? 'La nostra porta ⟶' : '⟵ La nostra porta') + '. Trascina un giocatore per spostarlo, toccalo per selezionarlo, doppio tocco per il cambio.'}</span>
       <span>${unplaced.length ? `<b style="color:var(--warn)">Da ricollocare: ${unplaced.map(p=>p.n).join(', ')}</b> ` : ''}${unmarked.length ? `<b style="color:var(--warn)">Senza marcatore: ${unmarked.map(p=>p.n).join(', ')}</b>` : (on.length ? '<b style="color:var(--ok)">Tutti marcati</b>' : '')}</span></div>
     </div>
-    <aside class="card panel">${UI.sel ? panelSel(m, oppBy(UI.sel)) : panelOverview(m, free)}</aside>
+    <aside class="card panel">${UI.sel ? panelSel(m, oppBy(UI.sel)) : panelZone(m)}</aside>
   </div>`;
+}
+/* ---- Panchina avversaria (1-24 + distinta): trascina in campo ---- */
+function benchHTML(m){
+  const onN = new Set(oppOn(m).map(q => q.n)), all = new Set(Array.from({length:24}, (_, i) => i + 1));
+  m.their.forEach(q => all.add(q.n));
+  const list = [...all].filter(n => !onN.has(n)).sort((a, b) => a - b);
+  return `<div class="bench" id="bench"><span class="bl">Panchina</span>${list.map(n => { const q = m.their.find(x => x.n === n);
+    return `<div class="btok ${q && q.exited ? 'ex' : ''} ${q && q.name ? 'nm' : ''}" data-bn="${n}" title="${q && q.name ? esc(q.name) : 'n° ' + n}${q && q.exited ? ' (uscito)' : ''}">${n}</div>`; }).join('')}</div>`;
+}
+/* ---- Note rapide per zona (a destra del campo) ---- */
+function panelZone(m){
+  const tag = c => `<div class="tag ${c === 'IND.' ? 'full' : ''}"><button class="tp" data-act="zq" data-c="${c}" data-p="1" aria-label="${c}: bene">+</button><button data-act="zFull" data-c="${c}">${c}</button><button class="tm" data-act="zq" data-c="${c}" data-p="-1" aria-label="${c}: da correggere">−</button></div>`;
+  const last = m.notes.filter(n => n.side === 'zona').slice(-5).reverse();
+  return `<div class="zn"><h3>Note rapide</h3>
+    <div class="tags">${CATS.zona.map(tag).join('')}</div>
+    <p class="hint" style="margin:8px 0 0">+ / − salva subito. Tocca la scritta per scegliere il giocatore.</p>
+    ${last.length ? `<ul class="last">${last.map(n => `<li><b>${n.min}</b> <span class="${n.pol > 0 ? 'p' : n.pol < 0 ? 'm' : ''}">${n.pol > 0 ? '＋' : n.pol < 0 ? '−' : ''} ${esc(n.cat)}</span>${n.text ? ' · ' + esc(n.text) : ''}</li>`).join('')}</ul>` : ''}
+    <div class="actions">${oppOn(m).some(q => !q.mk && !(oppGK(m) && q.id === oppGK(m).id)) ? '<button class="btn pri" data-act="seqAssign">Abbina in sequenza</button>' : ''}<button class="btn" data-act="subsDo" data-side="our">⇄ Cambi nostri</button><button class="btn" data-act="subsDo" data-side="opp">⇄ Cambi avversari</button></div></div>`;
+}
+function zoneModal(c){
+  const m = M(), list = field(m).sort(byN);
+  openModal(`<h2>${esc(c)}</h2>
+    <div class="polseg"><button class="p" data-act="zPol" data-p="1">＋ Bene</button><button class="z on" data-act="zPol" data-p="0">Neutra</button><button class="m" data-act="zPol" data-p="-1">− Da correggere</button></div>
+    <label class="fld"><span>Nota (facoltativa)</span><input id="zTx" placeholder="es. perde l'uomo sul cambio gioco" enterkeyhint="done"></label>
+    <h3>Giocatore</h3>
+    ${list.length ? `<div class="pick wide">${list.map(o => `<button data-act="zSave" data-id="${o.id}"><b>${o.n}</b><small>${esc(fieldName(o))}</small></button>`).join('')}</div>` : '<p class="hint">Nessun titolare: segnali in Pre-partita.</p>'}
+    <div class="btnrow"><button class="btn" data-act="mClose">Annulla</button><button class="btn pri" data-act="zSave">Salva senza giocatore</button></div>`, {zc:c, pol:0});
+}
+/* ---- Riconoscimento del sistema avversario dalle posizioni ---- */
+function hungarian(c){ // c: matrice n×m (n<=m), restituisce per ogni riga la colonna assegnata
+  const n = c.length, mm = c[0].length, INF = 1e18, u = new Array(n+1).fill(0), v = new Array(mm+1).fill(0), p = new Array(mm+1).fill(0), way = new Array(mm+1).fill(0);
+  for(let i = 1; i <= n; i++){
+    p[0] = i; let j0 = 0; const minv = new Array(mm+1).fill(INF), used = new Array(mm+1).fill(false);
+    do { used[j0] = true; const i0 = p[j0]; let d = INF, j1 = 0;
+      for(let j = 1; j <= mm; j++) if(!used[j]){ const cur = c[i0-1][j-1] - u[i0] - v[j]; if(cur < minv[j]){ minv[j] = cur; way[j] = j0; } if(minv[j] < d){ d = minv[j]; j1 = j; } }
+      for(let j = 0; j <= mm; j++){ if(used[j]){ u[p[j]] += d; v[j] -= d; } else minv[j] -= d; }
+      j0 = j1; } while(p[j0] !== 0);
+    do { const j1 = way[j0]; p[j0] = p[j1]; j0 = j1; } while(j0);
+  }
+  const res = new Array(n); for(let j = 1; j <= mm; j++) if(p[j]) res[p[j]-1] = j-1; return res;
+}
+function detectFormation(m){
+  const gk = oppGK(m), pts = oppOn(m).filter(q => q.x != null && !(gk && q.id === gk.id));
+  if(pts.length !== 10) return null;
+  const norm = arr => { const xs = arr.map(a => a.x), lo = Math.min(...xs), hi = Math.max(...xs), r = (hi - lo) || 1; return arr.map(a => ({x:(a.x - lo)/r, y:a.y/100})); };
+  const P = norm(pts);
+  let best = null;
+  Object.keys(FORM).forEach(f => {
+    const T = norm(rolePositions(f, 'opp', campoX).filter(t => t.role !== 1));
+    const cost = P.map(a => T.map(b => 2.2*(a.x - b.x)**2 + (a.y - b.y)**2));
+    const asg = hungarian(cost), tot = asg.reduce((s, j, i) => s + cost[i][j], 0);
+    if(!best || tot < best.tot - 1e-9) best = {f, tot};
+  });
+  return best && best.f;
+}
+/* Dopo aver tirato dentro giocatori dalla panchina: con 11 in campo riconosce il sistema e applica il piano preparato */
+function autoSystem(m){
+  const f = detectFormation(m); if(!f) return '';
+  const plan = (m.plans || []).find(p => p.formation === f);
+  if(plan){ if(m.activePlan !== plan.id){ activatePlan(m, plan); return `Sistema 1-${f}: applicato il piano «${plan.name}»`; } return ''; }
+  if(m.formation !== f){ m.formation = f; save(); return `Sistema riconosciuto: 1-${f} (nessun piano preparato)`; }
+  return '';
+}
+function benchDrop(m, n, x, y){
+  let t = m.their.find(q => q.n === n);
+  const plan = activePlan(m);
+  if(plan){ // vicino a una posizione vuota del piano: la occupa e prende il marcatore
+    const pr = $('#pitch').getBoundingClientRect(), tpx = (document.querySelector('#pitch .tok') || {}).offsetWidth || 40;
+    const s = plan.slots.filter(sl => !occupant(m, sl)).map(sl => ({sl, d:Math.hypot((sl.x - x)/100*pr.width, (sl.y - y)/100*pr.height)})).filter(o => o.d < tpx).sort((a, b) => a.d - b.d)[0];
+    if(s){ placeNumber(s.sl.id, n); t = m.their.find(q => q.n === n); if(t) t.exited = false; return t; }
+  }
+  if(!t){ t = {id:uid(), n, name:'', gk:false, on:true, h:0, cm:'', role:'', mk:null, ck:null, pb:false, note:''}; m.their.push(t); }
+  Object.assign(t, {on:true, exited:false, x:+x.toFixed(1), y:+y.toFixed(1), slot:null});
+  return t;
+}
+function bindBench(){
+  const bench = $('#bench'), pitch = $('#pitch'); if(!bench || !pitch) return;
+  bench.addEventListener('pointerdown', e => {
+    const b = e.target.closest('.btok'); if(!b) return;
+    e.preventDefault();
+    const n = +b.dataset.bn, sx = e.clientX, sy = e.clientY; let fly = null;
+    const move = ev => {
+      if(!fly && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 6) return;
+      if(!fly){ fly = b.cloneNode(true); fly.classList.add('fly'); document.body.appendChild(fly); b.style.visibility = 'hidden'; }
+      fly.style.left = ev.clientX + 'px'; fly.style.top = ev.clientY + 'px';
+    };
+    const up = ev => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+      if(!fly){ toast('Trascina il ' + n + ' sul campo'); return; }
+      fly.remove(); b.style.visibility = '';
+      const r = pitch.getBoundingClientRect();
+      if(ev.type === 'pointercancel' || ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom){ return; }
+      let x = Math.min(97, Math.max(3, (ev.clientX - r.left)/r.width*100)), y = Math.min(95, Math.max(5, (ev.clientY - r.top)/r.height*100));
+      const m = M(); if(m.flip){ x = 100 - x; y = 100 - y; }
+      const t = benchDrop(m, n, x, y);
+      if(started(m)) addNote({cat:'Marcature', side:'marc', text:`Entra in campo il n°${n}${t && t.mk ? ' (lo marca ' + nOur(t.mk) + ')' : ''}`, auto:true});
+      const msg = autoSystem(m); save(); render();
+      toast(msg || (oppOn(m).length < 11 ? `In campo il ${n} (${oppOn(m).length}/11)` : `In campo il ${n}`));
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  });
 }
 function renderPlanEdit(m){
   const plans = m.plans, others = Object.values(S.matches).filter(x => x.id !== m.id && (x.plans || []).length);
@@ -930,7 +1056,8 @@ function bindPitch(){
     const r = pitch.getBoundingClientRect();
     let x = Math.min(97, Math.max(3, (e.clientX - r.left)/r.width*100)), y = Math.min(95, Math.max(5, (e.clientY - r.top)/r.height*100));
     if(M().flip){ x = 100 - x; y = 100 - y; }
-    drag.t.style.left = x + '%'; drag.t.style.top = y + '%'; drag.x = x; drag.y = y;
+    drag.t.style.left = x + '%'; drag.t.style.top = y + '%'; drag.x = x; drag.y = y; drag.cx = e.clientX; drag.cy = e.clientY;
+    const bn = $('#bench'); if(bn && drag.id){ const br = bn.getBoundingClientRect(); bn.classList.toggle('hot', e.clientY >= br.top - 4 && e.clientY <= br.bottom && e.clientX >= br.left && e.clientX <= br.right); }
   });
   const end = () => {
     if(!drag) return;
@@ -944,6 +1071,11 @@ function bindPitch(){
       return;
     }
     const p = oppBy(d.id);
+    const bn = $('#bench');
+    if(d.moved && p && bn && d.cx != null){ const br = bn.getBoundingClientRect();
+      if(d.cy >= br.top - 4 && d.cy <= br.bottom && d.cx >= br.left && d.cx <= br.right){ // riportato in panchina
+        const m = M(); Object.assign(p, {on:false, slot:null, mk:null, ck:null, pb:false, gk:false});
+        if(UI.sel === p.id) UI.sel = null; save(); render(); toast(`${p.n} tolto dal campo`); return; } }
     if(d.moved && p){
       d.t.classList.remove('dragging');
       const r = pitch.getBoundingClientRect(), tpx = d.t.offsetWidth || 40;
@@ -1366,6 +1498,7 @@ function renderInt(m){
     </div>
     <div class="card"><h2>La nostra squadra</h2>${block('noi')}</div>
     <div class="card"><h2>L'avversario</h2>${block('loro')}</div>
+    <div class="card"><h2>Note per zona</h2>${block('zona')}</div>
     <div class="card"><h2>Marcature</h2>
       <h3>Accoppiamenti problematici (ora)</h3>${pbs.length ? pbs.map(p => `<div class="srow"><span><b>${p.n}</b> ${esc(p.name)} ⟵ marcato da <b>${nOur(p.mk) ?? '?'}</b></span>${p.note?`<span class="hint">${esc(p.note)}</span>`:''}</div>`).join('') : '<p class="empty">Nessuno segnato.</p>'}
       <h3>Cambi di marcatura</h3>${mlog.length ? `<ul class="log">${mlog.map(n => `<li><b>${n.min}</b> ${esc(n.text)}</li>`).join('')}</ul>` : '<p class="empty">Nessun cambio.</p>'}
@@ -1712,6 +1845,15 @@ const ACT = {
     });
   },
 
+  zq(el){ const pol = +el.dataset.p || 0, n = addNote({cat:el.dataset.c, side:'zona', pol}); render(); toast(`${n.min} ${pol > 0 ? '+ ' : pol < 0 ? '− ' : ''}${n.cat}`, 'Aggiungi giocatore', () => { UI.confirmDel = null; editNoteModal(n.id); }); },
+  zFull(el){ zoneModal(el.dataset.c); },
+  zPol(el){ MC.pol = +el.dataset.p; document.querySelectorAll('.polseg button').forEach(b => b.classList.toggle('on', b === el)); },
+  zSave(el){
+    const m = M(), o = el.dataset.id ? ourBy(el.dataset.id) : null, tx = ($('#zTx') || {}).value || '';
+    const text = [o ? o.n + ' ' + fieldName(o) : '', tx.trim()].filter(Boolean).join(' · ');
+    const n = addNote({cat:MC.zc, side:'zona', pol:MC.pol, text}); if(o){ n.pl = o.id; save(); }
+    closeModal(); render(); toast(`${n.min} ${n.pol > 0 ? '+ ' : n.pol < 0 ? '− ' : ''}${n.cat}${text ? ' · ' + text : ''}`);
+  },
   qnote(el){
     const pol = +el.dataset.p || 0, n = addNote({cat:el.dataset.c, side:el.dataset.side, pol});
     render();
