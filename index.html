@@ -508,11 +508,11 @@ function histSnap(m){
 function recordHist(m){
   if(!m || !m.clock || !Array.isArray(m.their)) return;
   const h = m.hist || (m.hist = []), snap = histSnap(m), key = JSON.stringify(snap), last = h[h.length - 1];
-  if(!started(m)){ const e = {half:1, sec:0, pre:true, s:snap}; if(last && last.pre) h[h.length - 1] = e; else if(!h.length) h.push(e); return; }
+  if(!started(m)){ const e = {half:1, sec:0, pre:true, s:snap, k:(last && last.pre && last.k) || uid()}; if(last && last.pre) h[h.length - 1] = e; else if(!h.length) h.push(e); return; }
   if(last && JSON.stringify(last.s) === key) return;
   const half = m.clock.half, sec = Math.floor(elapsed(m));
   if(last && !last.pre && last.half === half && Math.abs(sec - last.sec) < 20){ last.s = snap; return; }   // più modifiche ravvicinate = un solo cambio
-  h.push({half, sec, s:snap});
+  h.push({half, sec, s:snap, k:uid()});
 }
 function histMin(m, half, sec){ const L = +m.halfLen || 40, mm = Math.floor(sec/60) + 1, base = half === 1 ? 0 : L; return mm <= L ? (base + mm) + "'" : (base + L) + '+' + (mm - L) + "'"; }
 function histAt(m, half, sec){ const h = m.hist || []; let r = null; h.forEach(e => { if(e.half < half || (e.half === half && e.sec <= sec)) r = e; }); return r; }
@@ -562,8 +562,9 @@ function renderHist(m){
 function updSave(){
   const el = $('#saveSt'); if(!el) return;
   let tx = storageOK ? 'salvato' : 'NON salvato – esporta!';
-  if(storageOK && typeof dbxOn === 'function' && dbxOn()){ tx = SYNC.state === 'sync' ? 'Dropbox…' : SYNC.state === 'err' ? 'Dropbox: errore' : (S.dirty || SYNC.state === 'offline') ? 'salvato, da inviare' : 'Dropbox ✓'; }
-  el.textContent = tx; el.classList.toggle('bad', !storageOK || (typeof SYNC !== 'undefined' && SYNC.state === 'err'));
+  if(storageOK && typeof fbOn === 'function' && fbOn()){ tx = FBX.state === 'live' ? '● in diretta' : FBX.state === 'err' ? 'squadra: errore' : FBX.state === 'conn' ? 'collegamento…' : 'senza rete, salvato'; }
+  else if(storageOK && typeof dbxOn === 'function' && dbxOn()){ tx = SYNC.state === 'sync' ? 'Dropbox…' : SYNC.state === 'err' ? 'Dropbox: errore' : (S.dirty || SYNC.state === 'offline') ? 'salvato, da inviare' : 'Dropbox ✓'; }
+  el.textContent = tx; el.classList.toggle('bad', !storageOK || (typeof SYNC !== 'undefined' && SYNC.state === 'err') || (typeof FBX !== 'undefined' && fbOn() && FBX.state === 'err'));
 }
 
 const UI = {bMode:'move', planEdit:false, editPlan:null, selSlot:null, kp:'', sel:null, cSort:false, pol:0, intHalf:1, confirmDel:null, spTab:'cdif', spEdit:false, side:'dx', sopra:1};
@@ -640,7 +641,7 @@ let MC = null; // contesto modale
 let GHOST_T = 0;   // finestra aperta da un tocco (non da un click): il click che segue va ignorato
 const ghostClick = () => { if(GHOST_T && Date.now() - GHOST_T < 500){ GHOST_T = 0; return true; } GHOST_T = 0; return false; };
 function openModal(html, ctx){ MC = ctx || {}; $('#sheet').innerHTML = html; $('#modal').classList.remove('hidden'); const f = $('#sheet [autofocus]'); if(f) setTimeout(() => f.focus(), 60); }
-function closeModal(){ $('#modal').classList.add('hidden'); MC = null; }
+function closeModal(){ $('#modal').classList.add('hidden'); MC = null; if(typeof fbFlush === 'function') setTimeout(fbFlush, 30); }
 $('#modal').addEventListener('click', e => { if(e.target.id === 'modal' && !ghostClick()) closeModal(); });
 
 function pickModal(title, options, cb, extra, wide){
@@ -1602,7 +1603,8 @@ function renderArch(m){
       <p class="hint">I dati restano salvati su questo tablet. Dopo ogni partita esporta il file e mettilo in Dropbox: è la tua copia di sicurezza.</p>
       <p class="hint">Stato salvataggio: <b>${storageOK ? 'attivo su questo tablet' : 'NON disponibile: esporta prima di chiudere la pagina'}</b>.</p>
     </div>
-    <div class="card"><h2>Dropbox</h2>${dbxCardHtml()}</div>
+    <div class="card"><h2>Lavoro in squadra (in diretta)</h2>${fbCardHtml()}</div>
+    <div class="card"><h2>Dropbox</h2>${fbOn() ? '<p class="hint" style="margin-top:0">Non serve più: con il lavoro in squadra attivo i dati passano da lì. Il collegamento Dropbox resta salvato ma è in pausa.</p>' : dbxCardHtml()}</div>
     <div class="card"><h2>Importa / backup</h2>
       <label class="fld"><span>Importa un file di partita o un backup (.json)</span><input type="file" accept=".json,application/json" id="impFile"></label>
       <div class="btnrow"><button class="btn" data-act="exportAll">Esporta backup completo</button></div>
@@ -2012,6 +2014,20 @@ const ACT = {
   intHalf(el){ const v = el.dataset.v; UI.intHalf = v === 'all' ? 'all' : +v; render(); },
   useStar(el){ const m = M(), n = m.notes.find(x => x.id === el.dataset.id), k = el.dataset.k; const i = m.msg[k].findIndex(s => !s.trim()); if(i < 0) return toast('I tre messaggi sono già pieni'); m.msg[k][i] = n.text || n.cat; save(); render(); },
 
+  fbCfgSave(){
+    const t = ($('#fbCfgTx') || {}).value || '', k = (t.match(/apiKey["']?\s*[:=]\s*["']([^"']+)/) || [])[1], d = (t.match(/databaseURL["']?\s*[:=]\s*["']([^"']+)/) || [])[1];
+    if(!k || !d) return toast('Non trovo apiKey e databaseURL nel testo incollato');
+    FB.apiKey = k.trim(); FB.db = d.trim(); fbSaveNow(); render(); toast('Configurazione salvata: ora entra con email e password');
+  },
+  fbCfgReset(){ delete FB.apiKey; delete FB.db; fbSaveNow(); render(); },
+  async fbLoginGo(){
+    const em = ($('#fbEm') || {}).value.trim(), pw = ($('#fbPw') || {}).value;
+    if(!em || !pw) return toast('Scrivi email e password');
+    try{ await fbLogin(em, pw); render(); toast('Collegato: le partite si sincronizzano in diretta'); }
+    catch(e){ toast('Accesso non riuscito: ' + e.message); }
+  },
+  fbOut(){ confirmModal('Uscire dal lavoro in squadra?', 'Le partite restano su questo dispositivo, ma non si aggiornano più finché non rientri.', 'Esci', () => { fbLogout(); render(); }); },
+  fbReconnect(){ fbConnect(); toast('Ricollegamento…'); },
   hudlOpen(){
     const m = M(), h = m.hudl || {}, nz = m.notes.filter(n => n.side === 'zona').length, L = +m.halfLen || 40;
     openModal(`<h2>Tag per Hudl (Sportscode XML)</h2>
@@ -2101,7 +2117,7 @@ const DBXK = 'panchinaU16.dbx';
 let DBX = (() => { try{ return JSON.parse(localStorage.getItem(DBXK)) || {}; }catch(e){ return {}; } })();
 function dbxSave(){ try{ localStorage.setItem(DBXK, JSON.stringify(DBX)); }catch(e){} }
 const dbxKey = () => DBX_APP_KEY || DBX.key || '';
-const dbxOn = () => !!(dbxKey() && DBX.refresh);
+const dbxOn = () => !fbOn() && !!(dbxKey() && DBX.refresh);
 const SYNC = {state:'', msg:'', busy:false, timer:null};
 function setSync(state, msg){ SYNC.state = state; SYNC.msg = msg || ''; updSave(); const c = $('#dbxStatus'); if(c) c.innerHTML = dbxStatusText(); }
 function dbxStatusText(){
@@ -2205,7 +2221,215 @@ async function syncNow(manual){
   }catch(e){ setSync('err', e.message || String(e)); if(manual) toast('Sincronizzazione non riuscita: ' + (e.message || e)); }
   finally{ SYNC.busy = false; }
 }
-function scheduleSync(){ if(!dbxOn()) return; clearTimeout(SYNC.timer); SYNC.timer = setTimeout(() => syncNow(false), 4000); }
+/* ============ Lavoro in squadra: Firebase Realtime Database (REST + streaming, senza librerie) ============
+   Ogni pezzo della partita (dati generali, ogni giocatore, ogni nota, ogni schema…) è un nodo separato,
+   così due persone che modificano cose diverse nello stesso momento non si cancellano a vicenda. */
+const FB_CFG = {apiKey:'', databaseURL:''};
+const FBK = 'panchinaU16.fb';
+let FB = (() => { try{ return JSON.parse(localStorage.getItem(FBK)) || {}; }catch(e){ return {}; } })();
+const FBX = {id:null, exp:0, es:null, remote:null, state:'', msg:'', pushing:false, timer:null, saveT:null, pending:false, ready:false};
+function fbSave(){ clearTimeout(FBX.saveT); FBX.saveT = setTimeout(() => { try{ localStorage.setItem(FBK, JSON.stringify(FB)); }catch(e){} }, 300); }
+function fbSaveNow(){ clearTimeout(FBX.saveT); try{ localStorage.setItem(FBK, JSON.stringify(FB)); }catch(e){} }
+function fbCfg(){ return {apiKey: FB.apiKey || FB_CFG.apiKey, db: String(FB.db || FB_CFG.databaseURL || '').trim().replace(/\/+$/, '')}; }
+function fbOn(){ const c = fbCfg(); return !!(c.apiKey && c.db && FB.refresh); }
+function fbState(st, msg){ FBX.state = st; FBX.msg = msg || ''; updSave(); const c = $('#fbStatus'); if(c) c.innerHTML = fbStatusText(); }
+const fbEmailKey = e => String(e || '').toLowerCase().replace(/\./g, ',');
+function fbStatusText(){
+  if(!fbOn()) return 'Non collegato';
+  if(FBX.state === 'live') return `<b style="color:var(--ok)">● In diretta</b> come ${esc(FB.email || '')}. Le modifiche arrivano a tutti in pochi secondi.`;
+  if(FBX.state === 'conn') return 'Collegamento in corso…';
+  if(FBX.state === 'denied') return `<b style="color:var(--bad)">Accesso non autorizzato.</b> Mo deve aggiungere nel database, sotto <b>staff</b>, la riga <code>${esc(fbEmailKey(FB.email))}</code> con valore <code>true</code>.`;
+  if(FBX.state === 'err') return `<b style="color:var(--bad)">Errore:</b> ${esc(FBX.msg)}`;
+  return 'Senza rete: lavori sul tablet e le modifiche partono appena torna internet.';
+}
+/* partita → mappa percorso → testo JSON */
+const FB_COLS = ['our', 'their', 'notes', 'hist'], FB_SEGS = ['sp', 'plans', 'board', 'clock', 'msg', 'kit', 'subPlan', 'oppSubPlan', 'hudl'], FB_LOCAL = ['mod', 'flip'];
+function fbFlat(m){
+  const f = {}, meta = {};
+  Object.keys(m).forEach(k => {
+    if(FB_LOCAL.includes(k)) return;
+    if(FB_COLS.includes(k)){ (m[k] || []).forEach(x => { if(!x) return; if(k === 'hist' && !x.k) x.k = uid(); const key = k === 'hist' ? x.k : x.id; if(key) f[k + '/' + key] = JSON.stringify(x); }); return; }
+    if(FB_SEGS.includes(k)){ if(m[k] !== undefined) f[k] = JSON.stringify(m[k]); return; }
+    meta[k] = m[k];
+  });
+  f.meta = JSON.stringify(meta);
+  return f;
+}
+function fbApply(m, p, val){
+  const i0 = p.indexOf('/'), seg = i0 < 0 ? p : p.slice(0, i0), key = i0 < 0 ? null : p.slice(i0 + 1);
+  if(seg === 'meta'){ const meta = val ? JSON.parse(val) : {}; Object.keys(m).forEach(k => { if(!FB_LOCAL.includes(k) && !FB_COLS.includes(k) && !FB_SEGS.includes(k) && !(k in meta)) delete m[k]; }); Object.assign(m, meta); return; }
+  if(FB_COLS.includes(seg)){
+    const arr = Array.isArray(m[seg]) ? m[seg] : (m[seg] = []), i = arr.findIndex(x => x && (seg === 'hist' ? x.k : x.id) === key);
+    if(val === undefined){ if(i >= 0) arr.splice(i, 1); return; }
+    const o = JSON.parse(val);
+    if(i >= 0){ const t = arr[i]; Object.keys(t).forEach(k => delete t[k]); Object.assign(t, o); return; }
+    arr.push(o);
+    if(seg === 'notes') arr.sort((a, b) => (a.half - b.half) || (a.sec - b.sec) || ((a.at || 0) - (b.at || 0)));
+    if(seg === 'hist') arr.sort((a, b) => (b.pre ? 1 : 0) - (a.pre ? 1 : 0) || (a.half - b.half) || (a.sec - b.sec));
+    return;
+  }
+  if(val === undefined) delete m[seg]; else m[seg] = JSON.parse(val);
+}
+function fbSetPath(path, data){
+  const parts = String(path || '/').split('/').filter(Boolean);
+  if(!parts.length){ FBX.remote = (data && typeof data === 'object') ? data : {}; return; }
+  let n = FBX.remote || (FBX.remote = {});
+  for(let i = 0; i < parts.length - 1; i++){ if(!n[parts[i]] || typeof n[parts[i]] !== 'object') n[parts[i]] = {}; n = n[parts[i]]; }
+  const last = parts[parts.length - 1];
+  if(data === null || data === undefined) delete n[last]; else n[last] = data;
+}
+function fbRemoteFlat(rm){ const f = {}; Object.entries(rm || {}).forEach(([seg, v]) => { if(typeof v === 'string') f[seg] = v; else if(v && typeof v === 'object') Object.entries(v).forEach(([k, x]) => { if(typeof x === 'string') f[seg + '/' + k] = x; }); }); return f; }
+const fbBlank = m => !m.opp && !(m.notes || []).length && !(m.their || []).length && !(m.plans || []).length;
+/* unisce quello che arriva dal server: vince il server, tranne dove questo tablet ha modifiche non ancora inviate */
+function fbReconcile(){
+  const R = FBX.remote || {}, base = FB.base || (FB.base = {}), rms = R.matches || {}, del = R.del || {};
+  let changed = false;
+  const g = R.g || {}, bg = base._g || (base._g = {});
+  ['squad', 'spTpl'].forEach(k => { const Rv = typeof g[k] === 'string' ? g[k] : undefined, Bv = bg[k], Lv = JSON.stringify(S[k] ?? null);
+    if(Rv === Bv) return;
+    if((Lv === Bv || Bv === undefined) && Rv !== undefined && Lv !== Rv){ S[k] = JSON.parse(Rv); changed = true; }
+    if(Rv === undefined) delete bg[k]; else bg[k] = Rv; });
+  Object.keys(del).forEach(id => { if(S.matches[id]){ delete S.matches[id]; changed = true; } S.deleted = S.deleted || {}; S.deleted[id] = +del[id] || Date.now(); delete base[id]; });
+  new Set([...Object.keys(rms), ...Object.keys(base).filter(k => k !== '_g')]).forEach(mid => {
+    if(del[mid]) return;
+    const rf = fbRemoteFlat(rms[mid]), b = base[mid] || {};
+    let m = S.matches[mid];
+    if(!m){
+      if(!Object.keys(rf).length || (S.deleted && S.deleted[mid])){ return; }
+      m = S.matches[mid] = {id:mid}; Object.keys(rf).forEach(p => fbApply(m, p, rf[p]));
+      ['our', 'their', 'notes'].forEach(k => { if(!Array.isArray(m[k])) m[k] = []; });
+      if(!m.clock) m.clock = {half:1, run:false, t0:null, el:0}; if(!m.msg) m.msg = {1:['','',''], 2:['','','']};
+      base[mid] = {...rf}; changed = true; return;
+    }
+    const lf = fbFlat(m);
+    new Set([...Object.keys(rf), ...Object.keys(b)]).forEach(p => {
+      const Rv = rf[p], Bv = b[p], Lv = lf[p];
+      if(Rv === Bv) return;
+      if((Lv === Bv || (Bv === undefined && Rv !== undefined)) && Lv !== Rv){ fbApply(m, p, Rv); changed = true; }
+      if(Rv === undefined) delete b[p]; else b[p] = Rv;
+    });
+    base[mid] = b;
+  });
+  return changed;
+}
+function fbDiff(){
+  const base = FB.base || {}, upd = {}, r = FBX.remote || {};
+  Object.values(S.matches).forEach(m => {
+    const b = base[m.id] || {};
+    if(!base[m.id] && fbBlank(m)) return;                 // partita vuota appena creata: non la mando
+    const lf = fbFlat(m);
+    Object.keys(lf).forEach(p => { if(lf[p] !== b[p]) upd[`matches/${m.id}/${p}`] = lf[p]; });
+    Object.keys(b).forEach(p => { if(!(p in lf)) upd[`matches/${m.id}/${p}`] = null; });
+  });
+  Object.entries(S.deleted || {}).forEach(([id, t]) => {
+    if(S.matches[id]) return;
+    if(base[id] || (r.matches && r.matches[id])) upd['matches/' + id] = null;
+    if(!(r.del && r.del[id])) upd['del/' + id] = String(t);
+  });
+  const bg = base._g || {};
+  ['squad', 'spTpl'].forEach(k => { const Lv = JSON.stringify(S[k] ?? null); if(Lv !== bg[k]) upd['g/' + k] = Lv; });
+  return upd;
+}
+function fbBaseApply(upd){
+  const base = FB.base || (FB.base = {});
+  Object.entries(upd).forEach(([k, v]) => {
+    const a = k.split('/');
+    if(a[0] === 'g'){ (base._g || (base._g = {}))[a[1]] = v; return; }
+    if(a[0] !== 'matches') return;
+    const mid = a[1], p = a.slice(2).join('/');
+    if(!p){ if(v === null) delete base[mid]; return; }
+    const b = base[mid] || (base[mid] = {});
+    if(v === null) delete b[p]; else b[p] = v;
+  });
+}
+function fbSchedule(ms){ if(!fbOn()) return; clearTimeout(FBX.timer); FBX.timer = setTimeout(fbPush, ms ?? 400); }
+async function fbPush(){
+  if(!fbOn() || !FBX.ready || FBX.pushing) return;
+  const upd = fbDiff(); if(!Object.keys(upd).length) return;
+  if(!navigator.onLine){ fbState('offline'); return; }
+  FBX.pushing = true;
+  try{
+    const tok = await fbToken();
+    const r = await fetch(`${fbCfg().db}/team.json?auth=${encodeURIComponent(tok)}`, {method:'PATCH', body:JSON.stringify(upd)});
+    if(r.status === 401 || r.status === 403){ fbState('denied'); return; }
+    if(!r.ok) throw new Error('il server ha risposto ' + r.status);
+    fbBaseApply(upd); fbSave(); if(FBX.state !== 'live') fbState('live');
+  }catch(e){ fbState('offline', e.message); clearTimeout(FBX.timer); FBX.timer = setTimeout(fbPush, 5000); return; }
+  finally{ FBX.pushing = false; }
+  if(Object.keys(fbDiff()).length) fbSchedule(200);
+}
+const FB_ERR = {EMAIL_NOT_FOUND:'email non trovata', INVALID_PASSWORD:'password sbagliata', INVALID_LOGIN_CREDENTIALS:'email o password sbagliate', USER_DISABLED:'utente disattivato', TOO_MANY_ATTEMPTS_TRY_LATER:'troppi tentativi, riprova tra qualche minuto', INVALID_EMAIL:'email non valida', TOKEN_EXPIRED:'accesso scaduto, rientra', INVALID_REFRESH_TOKEN:'accesso scaduto, rientra', USER_NOT_FOUND:'utente non trovato', API_KEY_INVALID:'configurazione sbagliata (apiKey)'};
+const fbErr = j => { const c = String((j && j.error && (j.error.message || j.error)) || 'errore').split(' ')[0]; return FB_ERR[c] || c; };
+async function fbToken(force){
+  if(!force && FBX.id && Date.now() < FBX.exp - 60000) return FBX.id;
+  const c = fbCfg();
+  const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(c.apiKey)}`, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'grant_type=refresh_token&refresh_token=' + encodeURIComponent(FB.refresh)});
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok){ const e = new Error(fbErr(j)); e.auth = r.status === 400; throw e; }
+  FBX.id = j.id_token; FBX.exp = Date.now() + (+j.expires_in || 3600)*1000;
+  if(j.refresh_token && j.refresh_token !== FB.refresh){ FB.refresh = j.refresh_token; fbSaveNow(); }
+  return FBX.id;
+}
+async function fbLogin(email, pass){
+  const c = fbCfg();
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${encodeURIComponent(c.apiKey)}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email, password:pass, returnSecureToken:true})});
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error(fbErr(j));
+  FB.email = j.email || email; FB.refresh = j.refreshToken; FB.base = {}; FBX.id = j.idToken; FBX.exp = Date.now() + (+j.expiresIn || 3600)*1000;
+  fbSaveNow(); fbConnect();
+}
+function fbLogout(){ if(FBX.es){ FBX.es.close(); FBX.es = null; } clearTimeout(FBX.timer); delete FB.refresh; delete FB.email; FB.base = {}; FBX.id = null; FBX.ready = false; fbSaveNow(); fbState(''); }
+async function fbConnect(){
+  if(!fbOn()) return;
+  if(FBX.es){ FBX.es.close(); FBX.es = null; }
+  FBX.ready = false; fbState('conn');
+  let tok;
+  try{ tok = await fbToken(); }
+  catch(e){ if(e.auth){ fbState('err', e.message + '. Esci e rientra con email e password.'); return; } fbState('offline', e.message); setTimeout(fbConnect, 8000); return; }
+  try{ const t = await fetch(`${fbCfg().db}/team.json?shallow=true&auth=${encodeURIComponent(tok)}`); if(t.status === 401 || t.status === 403){ fbState('denied'); return; } }
+  catch(e){ fbState('offline'); setTimeout(fbConnect, 8000); return; }
+  const es = new EventSource(`${fbCfg().db}/team.json?auth=${encodeURIComponent(tok)}`); FBX.es = es;
+  const handle = (ev, kind) => {
+    let d; try{ d = JSON.parse(ev.data); }catch(e){ return; } if(!d || typeof d !== 'object') return;
+    if(kind === 'put') fbSetPath(d.path, d.data);
+    else Object.entries(d.data || {}).forEach(([k, v]) => fbSetPath(String(d.path || '/').replace(/\/$/, '') + '/' + k, v));
+    const first = !FBX.ready; FBX.ready = true; fbIncoming(first);
+  };
+  es.addEventListener('put', e => handle(e, 'put'));
+  es.addEventListener('patch', e => handle(e, 'patch'));
+  es.addEventListener('auth_revoked', () => { es.close(); FBX.id = null; fbConnect(); });
+  es.addEventListener('cancel', () => { es.close(); fbState('denied'); });
+  es.onerror = () => { if(FBX.es !== es) return; if(es.readyState === 2){ FBX.es = null; fbState('offline'); setTimeout(fbConnect, 5000); } else fbState('offline'); };
+}
+function fbIncoming(first){
+  const changed = fbReconcile();
+  if(first){ const cur = S.matches[S.cur];
+    if(!cur || fbBlank(cur)){ const best = Object.values(S.matches).filter(x => !fbBlank(x)).sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.created || 0) - (a.created || 0))[0]; if(best && best.id !== S.cur){ if(cur && fbBlank(cur)) delete S.matches[cur.id]; S.cur = best.id; } } }
+  if(S.cur && !S.matches[S.cur]) S.cur = Object.keys(S.matches)[0] || null;
+  fbSave();
+  if(changed || first){ try{ localStorage.setItem(LS, JSON.stringify(S)); }catch(e){} fbRender(); }
+  fbState('live');
+  fbSchedule(first ? 50 : 400);
+}
+function fbBusy(){ const a = document.activeElement; return !$('#modal').classList.contains('hidden') || !!document.querySelector('.dragging, .btok.fly') || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); }
+function fbRender(){ if(fbBusy()){ FBX.pending = true; return; } FBX.pending = false; render(); }
+function fbFlush(){ if(FBX.pending && !fbBusy()){ FBX.pending = false; render(); } }
+document.addEventListener('focusout', () => setTimeout(fbFlush, 60));
+window.addEventListener('pointerup', () => setTimeout(fbFlush, 120));
+window.addEventListener('online', () => { if(fbOn() && !FBX.es) fbConnect(); else fbSchedule(100); });
+function fbCardHtml(){
+  const c = fbCfg();
+  if(!c.apiKey || !c.db) return `<p class="hint" style="margin-top:0">Per lavorare in più persone sulla stessa partita (assistente, match analyst, team manager…) serve un database Firebase, una volta sola. Incolla qui la configurazione che Firebase ti mostra (il blocco <code>firebaseConfig</code>).</p>
+    <label class="fld"><span>Configurazione Firebase</span><textarea id="fbCfgTx" rows="5" placeholder="apiKey: &quot;…&quot;, databaseURL: &quot;https://….firebasedatabase.app&quot;"></textarea></label>
+    <div class="btnrow"><button class="btn pri" data-act="fbCfgSave">Salva configurazione</button></div>`;
+  if(!FB.refresh) return `<p class="hint" style="margin-top:0">Entra con l'email e la password che Mo ti ha dato. Le partite di tutto lo staff arrivano su questo dispositivo.</p>
+    <div class="row2"><label class="fld"><span>Email</span><input id="fbEm" type="email" autocomplete="username" value="${esc(FB.email || '')}"></label><label class="fld"><span>Password</span><input id="fbPw" type="password" autocomplete="current-password" data-enter="fbLoginGo" enterkeyhint="go"></label></div>
+    <div class="btnrow"><button class="btn pri" data-act="fbLoginGo">Entra</button>${FB_CFG.apiKey ? '' : '<button class="btn" data-act="fbCfgReset">Cambia configurazione</button>'}</div>`;
+  return `<p id="fbStatus" style="margin-top:0">${fbStatusText()}</p>
+    <p class="hint">Tutti vedono e modificano le stesse partite. Se due persone cambiano la stessa cosa nello stesso momento, resta l'ultima. Senza rete l'app continua a funzionare e invia tutto appena torna internet.</p>
+    <div class="btnrow"><button class="btn" data-act="fbReconnect">Ricollega</button><button class="btn" data-act="fbOut">Esci</button></div>`;
+}
+function scheduleSync(){ if(fbOn()) return fbSchedule(); if(!dbxOn()) return; clearTimeout(SYNC.timer); SYNC.timer = setTimeout(() => syncNow(false), 4000); }
 window.addEventListener('online', () => syncNow(false));
 document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') syncNow(false); });
 function dbxCardHtml(){
@@ -2226,7 +2450,7 @@ function dbxCardHtml(){
 M();
 if(M().clock.run && !M().clock.t0) M().clock.run = false;
 render();
-setTimeout(() => syncNow(false), 800);
+setTimeout(() => { if(fbOn()) fbConnect(); else syncNow(false); }, 800);
 if(!storageOK) toast('Salvataggio non disponibile: esporta la partita prima di chiudere');
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){ window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); }); }
 </script>
