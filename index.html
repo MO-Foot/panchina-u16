@@ -356,6 +356,11 @@ svg.trace circle{fill:none;stroke:#fff;stroke-width:.35;stroke-dasharray:1 .8;op
 .ccol .opb{min-height:40px;font-size:.76rem;line-height:1.15;gap:6px;padding:3px 7px}
 .ccol .opb b{font-size:1.6rem}
 .ccol .spgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+/* tutte le caselle dei compiti alla stessa altezza, in difesa e in attacco */
+.ccol .spgrid > .spc:not(.area){height:124px;overflow:hidden;display:flex;flex-direction:column}
+.ccol .spgrid > .spc:not(.area) .spl{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.4em}
+.ccol .spgrid > .spc:not(.area) .spn{flex-wrap:nowrap;gap:6px;overflow-x:auto;overflow-y:hidden;flex:1;align-items:center;margin-top:2px}
+.ccol .spgrid > .spc:not(.area) .spplus.wide{white-space:nowrap}
 @media (max-width:980px){ .corner2{grid-template-columns:1fr} }
 .spn{display:flex;flex-wrap:wrap;gap:14px;margin-top:6px;align-items:center}
 .pnb{background:none;border:0;padding:2px 4px;margin:-2px -4px;font:inherit;color:inherit;cursor:pointer;text-align:left;border-radius:8px}
