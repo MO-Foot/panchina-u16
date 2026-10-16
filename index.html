@@ -98,6 +98,24 @@ main{padding:12px;padding-bottom:40px}
 /* Pre */
 .pre{display:grid;grid-template-columns:1fr 1.4fr;gap:12px;align-items:start}
 .pre .wide{grid-column:1/-1}
+.pre .nois{grid-row:span 2}
+.pre .master{grid-column:1}
+.pre .master.wide{grid-column:1/-1}
+.mbar{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 8px}
+.mastercol .pitch{width:100%}
+.mpanel{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+.tok.ourt.ourgk{background:var(--opp-gk);color:#fff;box-shadow:0 0 0 2px var(--our),0 2px 6px rgba(0,0,0,.35)}
+.halves{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%}
+.halfwrap{display:flex;flex-direction:column;align-items:center;min-width:0}
+.hlab{font-size:.85rem;font-weight:700;color:var(--warn);margin:0 0 4px;text-align:center}
+.pitch.half{aspect-ratio:52.5/68;width:min(100%, calc((100vh - 300px) * 52.5 / 68));background:repeating-linear-gradient(90deg,var(--pitch) 0 19.04%,var(--pitch2) 19.04% 38.08%)}
+.pitch.half .hsvg{position:absolute;top:0;bottom:0;width:200%;pointer-events:none}
+.pitch.half .hsvg svg{position:absolute;inset:0;width:100%;height:100%}
+.phseg button{min-width:150px}
+.mklines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.mklines line{stroke:#ffe14d;stroke-width:.45;stroke-dasharray:1.2 .8}
+.tok .mk.none{bottom:auto;top:-30%;left:auto;right:-35%;transform:none;min-width:0;width:calc(var(--t)*.55);height:calc(var(--t)*.55);border-radius:50%;padding:0}
+@media (max-width:1400px){ .pre .master{grid-column:1/-1} .pre .nois{grid-row:auto} .mastercol .pitch{width:min(100%, calc((100vh - 230px) * 105 / 68))} }
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .pchip{position:relative;display:flex;align-items:center;gap:8px;min-height:52px;padding:6px 40px 6px 10px;border-radius:12px;border:2px solid var(--line);background:var(--surface2);text-align:left}
 .pchip b{font-size:1.7rem;font-weight:700;min-width:30px;text-align:center;line-height:1}
@@ -567,7 +585,7 @@ function updSave(){
   el.textContent = tx; el.classList.toggle('bad', !storageOK || (typeof SYNC !== 'undefined' && SYNC.state === 'err') || (typeof FBX !== 'undefined' && fbOn() && FBX.state === 'err'));
 }
 
-const UI = {bMode:'move', planEdit:false, editPlan:null, selSlot:null, kp:'', sel:null, cSort:false, pol:0, intHalf:1, confirmDel:null, spTab:'cdif', spEdit:false, side:'dx', sopra:1};
+const UI = {phase:'dif', bMode:'move', planEdit:false, editPlan:null, selSlot:null, kp:'', sel:null, cSort:false, pol:0, intHalf:1, confirmDel:null, spTab:'cdif', spEdit:false, side:'dx', sopra:1};
 
 /* ============ Utility ============ */
 const $ = s => document.querySelector(s);
@@ -639,7 +657,8 @@ $('#toastBtn').addEventListener('click', () => { $('#toast').classList.add('hidd
 
 let MC = null; // contesto modale
 let GHOST_T = 0;   // finestra aperta da un tocco (non da un click): il click che segue va ignorato
-const ghostClick = () => { if(GHOST_T && Date.now() - GHOST_T < 500){ GHOST_T = 0; return true; } GHOST_T = 0; return false; };
+const ghostClick = () => { if(GHOST_T && Date.now() - GHOST_T < 300){ GHOST_T = 0; return true; } GHOST_T = 0; return false; };
+document.addEventListener('click', e => { if(GHOST_T && !e.target.closest('#modal')) GHOST_T = 0; }, true);   // il click fantasma è caduto fuori dalla finestra: niente da ignorare
 function openModal(html, ctx){ MC = ctx || {}; $('#sheet').innerHTML = html; $('#modal').classList.remove('hidden'); const f = $('#sheet [autofocus]'); if(f) setTimeout(() => f.focus(), 60); }
 function closeModal(){ $('#modal').classList.add('hidden'); MC = null; if(typeof fbFlush === 'function') setTimeout(fbFlush, 30); }
 $('#modal').addEventListener('click', e => { if(e.target.id === 'modal' && !ghostClick()) closeModal(); });
@@ -666,7 +685,8 @@ function render(){
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === S.view));
   const V = {pre:renderPre, campo:renderCampo, board:renderBoard, corner:renderCorner, note:renderNote, int:renderInt, arch:renderArch}[S.view] || renderPre;
   $('#main').innerHTML = V(m);
-  if(S.view === 'campo'){ bindPitch(); bindBench(); }
+  if(S.view === 'pre'){ bindPitch(); bindBench(); }
+  if(S.view === 'campo'){ bindPhases(); bindBench(); }
   if(S.view === 'board') bindBoard();
   const dl = $('#dbxLink'); if(dl) dbxAuthUrl().then(u => { dl.href = u; const ui = $('#dbxUrl'); if(ui) ui.value = u; }).catch(e => { const ui = $('#dbxUrl'); if(ui) ui.value = 'Errore: ' + (e && e.message || e); });
   tick(); updSave();
@@ -691,7 +711,7 @@ function renderPre(m){
     </div>
     <label class="fld"><span>Competizione / luogo</span><input data-f="comp" value="${esc(m.comp)}" placeholder="es. Amichevole, Tenero"></label>
   </div>
-  <div class="card">
+  <div class="card nois">
     <div class="cardhead"><h2>Noi</h2><span class="badge ${tit===11?'ok':'warn'}">${tit} titolari</span></div>
     <div class="addrow"><input id="ourN" class="num" type="number" inputmode="numeric" placeholder="N°" data-enter="addOur"><input id="ourName" placeholder="Nome (facoltativo)" data-enter="addOur"><button class="btn pri" data-act="addOur">Aggiungi</button></div>
     <p class="hint">Tocca un giocatore: Titolare → Panchina → Non convocato. Tocca ✎ per modificarlo o segnarlo come portiere.</p>
@@ -703,6 +723,7 @@ function renderPre(m){
       <button class="btn" data-act="subsPlan" data-side="our">Prepara i cambi${Object.keys(m.subPlan||{}).length ? ' (' + Object.keys(m.subPlan).length + ')' : ''}</button>
     </div>
   </div>
+  <div class="card master ${UI.planEdit ? 'wide' : ''}"><div class="cardhead"><h2>Formazioni (master)</h2><span class="hint" style="margin:0">Quello che cambi qui vale in tutta l'app</span></div>${renderMaster(m)}</div>
   <div class="card wide">
     <div class="cardhead"><h2>Avversario</h2><span class="badge ${on===11?'ok':'warn'}">${on} in campo</span></div>
     <div class="addrow"><input id="oppN" class="num" type="number" inputmode="numeric" placeholder="N°" data-enter="addOpp"><input id="oppName" placeholder="Nome (facoltativo)" data-enter="addOpp"><button class="btn pri" data-act="addOpp">Aggiungi</button></div>
@@ -714,7 +735,7 @@ function renderPre(m){
       <label class="fld inline"><span>Modulo avversario</span><select data-f="formation">${Object.keys(FORM).map(f => `<option ${f===m.formation?'selected':''}>${f}</option>`).join('')}</select></label>
       <button class="btn pri" data-act="layout" ${on?'':'disabled'}>Disponi in campo secondo il modulo</button>
     </div>
-    <p class="hint">Le altezze si segnano in <b>Palle inattive → Altezze avversari</b>, per esempio durante gli inni. Gli accoppiamenti si fanno nella scheda <b>Campo</b>.</p>
+    <p class="hint">Le altezze si segnano in <b>Palle inattive → Altezze avversari</b>, per esempio durante gli inni. Gli accoppiamenti si fanno nel campo master qui sopra o nella scheda <b>Campo</b> (pressing alto).</p>
   </div>
   </div>`;
 }
@@ -863,7 +884,7 @@ function planBar(m){
     ${ed ? '<button class="plchip add" data-act="planNew">＋ Piano</button>' : (plans.length ? '' : '<span class="hint" style="margin:0">Nessun piano preparato</span>')}
     <span style="flex:1"></span>${!ed && activePlan(m) ? '<button class="btn" data-act="byNumber" title="Ogni avversario va nella posizione del suo numero">⇅ Posiziona per numero</button>' : ''}${tokSizer()}<button class="btn ${m.flip ? 'pri' : ''}" data-act="flip" title="Gira il campo come lo vedi dalla panchina">⟲ Gira campo</button><button class="btn ${ed ? 'pri' : ''}" data-act="planEditT">${ed ? '✓ Fine preparazione' : '✎ Prepara piani'}</button></div>`;
 }
-function renderCampo(m){
+function renderMaster(m){
   if(!Array.isArray(m.plans)) m.plans = [];
   if(UI.planEdit) return planBar(m) + renderPlanEdit(m);
   const plan = activePlan(m), on = oppOn(m);
@@ -873,7 +894,7 @@ function renderCampo(m){
   const gk = oppGK(m), ids = plan ? new Set(plan.slots.map(s => s.id)) : null;
   const toks = on.map(p => {
     const mk = nOur(p.mk), isGK = gk && p.id === gk.id, unp = plan && !ids.has(p.slot);
-    return `<div class="tok ${isGK?'gk':''} ${p.id===UI.sel?'sel':''} ${p.pb?'pb':''} ${unp?'unplaced':''}" data-tok="${p.id}" style="left:${p.x}%;top:${p.y}%">${p.n}${p.pb?'<span class="pbm">!</span>':''}${isGK && !mk ? '' : mkChip(ourBy(p.mk), mk)}</div>`;
+    return `<div class="tok ${isGK?'gk':''} ${p.id===UI.sel?'sel':''} ${p.pb?'pb':''} ${unp?'unplaced':''}" data-tok="${p.id}" style="left:${p.x}%;top:${p.y}%">${p.n}${p.pb?'<span class="pbm">!</span>':''}</div>`;
   }).join('');
   const trace = plan ? on.map(p => { const s = plan.slots.find(x => x.id === p.slot); if(!s || Math.hypot(p.x - s.x, p.y - s.y) < 4) return ''; return `<circle cx="${(s.x*1.05).toFixed(2)}" cy="${(s.y*.68).toFixed(2)}" r="2.2"/><line x1="${(s.x*1.05).toFixed(2)}" y1="${(s.y*.68).toFixed(2)}" x2="${(p.x*1.05).toFixed(2)}" y2="${(p.y*.68).toFixed(2)}"/>`; }).join('') : '';
   const ghosts = plan ? plan.slots.filter(s => !occupant(m, s)).map(s => `<div class="tok ghost ${s.gk?'gkg':''}" data-slot="${s.id}" style="left:${s.x}%;top:${s.y}%">+${s.gk || s.mk == null ? '' : mkChip(ourByN(s.mk), s.mk)}</div>`).join('') : '';
@@ -881,15 +902,134 @@ function renderCampo(m){
   const unmarked = on.filter(p => !p.mk && !(gk && p.id === gk.id));
   const empty = plan ? plan.slots.filter(s => !s.gk && !occupant(m, s)).length : 0;
   const unplaced = plan ? on.filter(p => !ids.has(p.slot)) : [];
-  return planBar(m) + `<div class="campo">
+  const om = ourMaster(m), ogk = ourGK(m);
+  const ourToks = field(m).map(o => { const q = om[o.id]; if(!q) return ''; return `<div class="tok ourt ${o === ogk ? 'ourgk' : ''}" data-our="${o.id}" style="left:${q.x}%;top:${q.y}%">${o.n}</div>`; }).join('');
+  const fsel = (k, v) => `<select data-mf="${k}" aria-label="Modulo">${Object.keys(FORM).map(f => `<option value="${f}" ${f===v?'selected':''}>1-${f}</option>`).join('')}</select>`;
+  return planBar(m) + `<div class="mbar"><label class="bsel"><span class="sw our"></span>Noi ${fsel('fOur', m.fOur || '4-3-3')}</label>${plan ? '' : `<label class="bsel"><span class="sw opp"></span>Loro ${fsel('formation', m.formation || '4-4-2')}</label>`}</div>
+  <div class="mastercol">
     <div class="pitchwrap">
-      <div class="pitch ${m.flip?'flip':''}" id="pitch">${PITCH_SVG}${trace ? `<svg class="trace" viewBox="0 0 105 68" preserveAspectRatio="none">${trace}</svg>` : ''}${ghosts}${toks}</div>
+      <div class="pitch ${m.flip?'flip':''}" id="pitch">${PITCH_SVG}${trace ? `<svg class="trace" viewBox="0 0 105 68" preserveAspectRatio="none">${trace}</svg>` : ''}${ghosts}${ourToks}${toks}</div>
       ${benchHTML(m)}
       <div class="pitchfoot"><span>${!on.length ? '<b>Trascina i numeri dalla panchina sul campo: con 11 giocatori l\'app riconosce il sistema e applica il piano preparato.</b>' : plan && empty ? `<b>Tocca un <span class="plus">+</span> per inserire il numero (${empty} posizioni vuote)</b>` : (m.flip ? 'La nostra porta ⟶' : '⟵ La nostra porta') + '. Trascina un giocatore per spostarlo, toccalo per selezionarlo, doppio tocco per il cambio.'}</span>
       <span>${unplaced.length ? `<b style="color:var(--warn)">Da ricollocare: ${unplaced.map(p=>p.n).join(', ')}</b> ` : ''}${unmarked.length ? `<b style="color:var(--warn)">Senza marcatore: ${unmarked.map(p=>p.n).join(', ')}</b>` : (on.length ? '<b style="color:var(--ok)">Tutti marcati</b>' : '')}</span></div>
     </div>
+    <div class="actions" style="margin-top:8px">${unmarked.length ? '<button class="btn pri" data-act="seqAssign">Abbina in sequenza</button>' : ''}<button class="btn" data-act="subsDo" data-side="our">⇄ Cambi nostri</button><button class="btn" data-act="subsDo" data-side="opp">⇄ Cambi avversari</button></div>
+    ${UI.sel ? `<div class="mpanel">${panelSel(m, oppBy(UI.sel))}</div>` : ''}
+  </div>`;
+}
+/* ---- Posizioni nostre nel master: dal modulo, poi spostate a mano ---- */
+function ourMaster(m){
+  const tit = field(m), pos = m.ourPos || {}, out = {};
+  const missing = tit.filter(o => !pos[o.id]);
+  if(missing.length){
+    const gk = ourGK(m), rest = tit.filter(o => o !== gk).sort(byN);
+    const nums = [gk ? gk.n : 'P', ...rest.map(o => o.n)], pl = boardPlace(nums, m.fOur || '4-3-3', 'our');
+    const by = {}; [gk, ...rest].forEach((o, i) => { if(o && pl[i]) by[o.id] = {x:pl[i].x, y:pl[i].y}; });
+    tit.forEach(o => { out[o.id] = pos[o.id] || by[o.id] || {x:30, y:50}; });
+  } else tit.forEach(o => { out[o.id] = pos[o.id]; });
+  return out;
+}
+/* ============ Scheda Campo: le 4 fasi, ognuna su mezzo campo ============ */
+const PHASES = {
+  dif:[{k:'low', x0:0, lab:'DIF · Blocco basso'}, {k:'high', x0:50, lab:'DIF · Pressing alto (loro portiere ha palla)'}],
+  off:[{k:'build', x0:0, lab:'OFF · Costruzione dal portiere'}, {k:'att', x0:50, lab:'OFF · Nella loro metà campo'}]
+};
+const PH_X0 = {low:0, high:50, build:0, att:50};
+const clampV = (v, a, b) => Math.min(b, Math.max(a, v));
+function phAuto(m, ph, team, p, om, oppPos){
+  const isOppGK = team === 'opp' && oppGK(m) && oppGK(m).id === p.id, isOurGK = team === 'our' && ourGK(m) === p;
+  const mp = team === 'opp' ? {x:p.x ?? 50, y:p.y ?? 50} : (om[p.id] || {x:30, y:50});
+  let x, y = mp.y;
+  if(ph === 'low'){ if(team === 'opp'){ x = isOppGK ? 75 : 0.55*mp.x - 4; } else { x = isOurGK ? 5 : 6 + (mp.x - 6)*0.6; } }
+  else if(ph === 'high'){
+    if(team === 'opp'){ x = isOppGK ? 97 : 50 + 0.5*mp.x; }
+    else { if(isOurGK) return {x:25, y:50};
+      const t = m.their.find(q => q.on && q.mk === p.id), tp = t && oppPos && oppPos[t.id];
+      if(tp) return {x:clampV(tp.x - 6.5, 51.5, 98.5), y:clampV(tp.y + 1.5, 4, 96)};
+      x = 52 + (mp.x - 6)*0.6; } }
+  else if(ph === 'build'){ if(team === 'opp'){ x = isOppGK ? 60 : 8 + 0.5*mp.x; } else { x = isOurGK ? 3 : 3 + (mp.x - 6)*0.95; y = 50 + (mp.y - 50)*1.15; } }
+  else { if(team === 'opp'){ x = isOppGK ? 96 : 58 + (mp.x - 30)*0.55; } else { x = isOurGK ? 40 : 54 + (mp.x - 6)*0.85; } }
+  const x0 = PH_X0[ph], hidden = (isOppGK && (ph === 'low' || ph === 'build')) || (isOurGK && (ph === 'high' || ph === 'att'));
+  return {x: hidden ? x : clampV(x, x0 + 3, x0 + 47), y: clampV(y, 4, 96)};
+}
+function phPositions(m, ph){
+  const st = (m.ph && m.ph[ph]) || {}, so = st.opp || {}, su = st.our || {}, om = ourMaster(m), opp = {}, our = {};
+  oppOn(m).forEach(q => { opp[q.id] = so[q.id] || phAuto(m, ph, 'opp', q, om); });
+  field(m).forEach(o => { our[o.id] = su[o.id] || phAuto(m, ph, 'our', o, om, opp); });
+  return {opp, our};
+}
+function phSet(m, ph, team, id, x, y){ m.ph = m.ph || {}; const st = m.ph[ph] || (m.ph[ph] = {}); (st[team] || (st[team] = {}))[id] = {x:+x.toFixed(1), y:+y.toFixed(1)}; }
+function phCopy(m, from, to){ // un cambio: chi entra prende anche le posizioni nelle fasi
+  Object.values(m.ph || {}).forEach(st => ['opp', 'our'].forEach(t => { if(st[t] && st[t][from]){ st[t][to] = st[t][from]; delete st[t][from]; } }));
+  if(m.ourPos && m.ourPos[from]){ m.ourPos[to] = m.ourPos[from]; delete m.ourPos[from]; }
+}
+function halfHTML(m, P, flip){
+  const pos = phPositions(m, P.k), x0 = P.x0, gk = oppGK(m), ogk = ourGK(m), high = P.k === 'high';
+  const vis = q => q && q.x >= x0 && q.x <= x0 + 50;
+  const L = q => `left:${((q.x - x0)*2).toFixed(2)}%;top:${q.y}%`;
+  const opp = oppOn(m).map(p => { const q = pos.opp[p.id]; if(!vis(q)) return ''; const isGK = gk && p.id === gk.id, mk = nOur(p.mk);
+    return `<div class="tok ${isGK ? 'gk' : ''} ${p.id === UI.sel ? 'sel' : ''} ${high && p.pb ? 'pb' : ''}" data-ph="${P.k}" data-team="opp" data-tok="${p.id}" style="${L(q)}">${p.n}${high && p.pb ? '<span class="pbm">!</span>' : ''}${high && !isGK && !p.mk ? '<span class="mk none">?</span>' : ''}</div>`; }).join('');
+  const lines = high ? oppOn(m).map(p => { const a = pos.opp[p.id], o = p.mk && ourBy(p.mk), b = o && pos.our[o.id]; if(!vis(a) || !vis(b)) return '';
+    return `<line x1="${((a.x - x0)*1.05).toFixed(2)}" y1="${(a.y*.68).toFixed(2)}" x2="${((b.x - x0)*1.05).toFixed(2)}" y2="${(b.y*.68).toFixed(2)}"/>`; }).join('') : '';
+  const our = field(m).map(o => { const q = pos.our[o.id]; if(!vis(q)) return ''; return `<div class="tok ourt ${o === ogk ? 'ourgk' : ''}" data-ph="${P.k}" data-team="our" data-pid="${o.id}" style="${L(q)}">${o.n}</div>`; }).join('');
+  return `<div class="halfwrap"><div class="hlab">${esc(P.lab)}</div><div class="pitch half ${flip ? 'flip' : ''}" data-ph="${P.k}" data-x0="${x0}"><div class="hsvg" style="left:${x0 ? '-100%' : '0'}">${PITCH_SVG}</div>${lines ? `<svg class="mklines" viewBox="0 0 52.5 68" preserveAspectRatio="none">${lines}</svg>` : ''}${our}${opp}</div></div>`;
+}
+function renderCampo(m){
+  if(!Array.isArray(m.plans)) m.plans = [];
+  ensurePositions(m);
+  const on = oppOn(m), gk = oppGK(m);
+  if(UI.sel && !on.some(p => p.id === UI.sel)) UI.sel = null;
+  const phs = PHASES[UI.phase] || PHASES.dif, order = m.flip ? [phs[1], phs[0]] : phs;
+  const unmarked = on.filter(p => !p.mk && !(gk && p.id === gk.id));
+  const plans = m.plans || [];
+  return `<div class="planbar"><div class="seg phseg"><button class="${UI.phase !== 'off' ? 'on' : ''}" data-act="phase" data-v="dif">Fase difensiva</button><button class="${UI.phase === 'off' ? 'on' : ''}" data-act="phase" data-v="off">Fase offensiva</button></div>
+    ${plans.map(p => `<button class="plchip ${m.activePlan === p.id ? 'on' : ''}" data-act="planAct" data-id="${p.id}">${esc(p.name)}</button>`).join('')}
+    <span style="flex:1"></span><button class="btn" data-act="phReset" title="Riporta le pedine di questo campo alla formazione del master">↺ Dal master</button>${tokSizer()}<button class="btn ${m.flip ? 'pri' : ''}" data-act="flip" title="Gira il campo come lo vedi dalla panchina">⟲ Gira campo</button></div>
+  <div class="campo">
+    <div class="pitchwrap">
+      <div class="halves">${order.map(P => halfHTML(m, P, m.flip)).join('')}</div>
+      ${benchHTML(m)}
+      <div class="pitchfoot"><span>${on.length ? 'Le pedine partono dal master (Pre-partita): trascinale per sistemarle in questa fase. Tocca un avversario per il marcatore, doppio tocco per il cambio.' : '<b>Inserisci la formazione nel campo master in Pre-partita, oppure trascina i numeri dalla panchina.</b>'}</span>
+      <span>${unmarked.length ? `<b style="color:var(--warn)">Senza marcatore: ${unmarked.map(p => p.n).join(', ')}</b>` : (on.length ? '<b style="color:var(--ok)">Tutti marcati</b>' : '')}</span></div>
+    </div>
     <aside class="card panel">${UI.sel ? panelSel(m, oppBy(UI.sel)) : panelZone(m)}</aside>
   </div>`;
+}
+/* trascinamento nelle metà campo */
+function bindPhases(){
+  document.querySelectorAll('.pitch.half').forEach(el => {
+    const ph = el.dataset.ph, x0 = +el.dataset.x0;
+    const toXY = e => { const r = el.getBoundingClientRect(); let px = (e.clientX - r.left)/r.width*100, py = (e.clientY - r.top)/r.height*100; if(el.classList.contains('flip')){ px = 100 - px; py = 100 - py; } return [clampV(x0 + px/2, x0 + 3, x0 + 47), clampV(py, 4, 96)]; };
+    let d = null;
+    el.addEventListener('pointerdown', e => {
+      const t = e.target.closest('.tok');
+      if(!t){ d = {empty:true, sx:e.clientX, sy:e.clientY}; return; }
+      e.preventDefault(); t.setPointerCapture(e.pointerId);
+      d = {t, team:t.dataset.team, id:t.dataset.tok || t.dataset.pid, chip:!!e.target.closest('.mk'), sx:e.clientX, sy:e.clientY, moved:false};
+    });
+    el.addEventListener('pointermove', e => {
+      if(!d) return;
+      if(d.empty){ if(Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 10) d = null; return; }
+      if(!d.moved && Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 8) return;
+      d.moved = true; d.t.classList.add('dragging');
+      const [x, y] = toXY(e); d.x = x; d.y = y; d.t.style.left = ((x - x0)*2) + '%'; d.t.style.top = y + '%';
+    });
+    const end = () => {
+      if(!d) return; const k = d; d = null; const m = M();
+      if(k.empty){ if(UI.sel){ UI.sel = null; render(); } return; }
+      k.t.classList.remove('dragging');
+      if(k.moved){ phSet(m, ph, k.team, k.id, k.x, k.y); save(); if(k.team === 'opp' && ph === 'high') render(); return; }
+      if(k.team !== 'opp') return;
+      const p = oppBy(k.id); if(!p) return;
+      if(k.chip){ UI.sel = p.id; render(); GHOST_T = Date.now(); quickMarker(p); return; }
+      const now = Date.now(), dbl = LAST_TAP.id === p.id && now - LAST_TAP.t < 450;
+      LAST_TAP = dbl ? {id:null, t:0} : {id:p.id, t:now};
+      if(dbl){ UI.sel = p.id; render(); GHOST_T = Date.now(); quickSubOpp(p); return; }
+      UI.sel = UI.sel === p.id ? null : p.id; render();
+    };
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', () => { if(d && d.t) d.t.classList.remove('dragging'); d = null; });
+  });
 }
 /* ---- Panchina avversaria (1-24 + distinta): trascina in campo ---- */
 function benchHTML(m){
@@ -966,7 +1106,7 @@ function benchDrop(m, n, x, y){
   return t;
 }
 function bindBench(){
-  const bench = $('#bench'), pitch = $('#pitch'); if(!bench || !pitch) return;
+  const bench = $('#bench'); if(!bench) return;
   bench.addEventListener('pointerdown', e => {
     const b = e.target.closest('.btok'); if(!b) return;
     e.preventDefault();
@@ -980,12 +1120,17 @@ function bindBench(){
       window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
       if(!fly){ toast('Trascina il ' + n + ' sul campo'); return; }
       fly.remove(); b.style.visibility = '';
-      const r = pitch.getBoundingClientRect();
-      if(ev.type === 'pointercancel' || ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom){ return; }
-      let x = Math.min(97, Math.max(3, (ev.clientX - r.left)/r.width*100)), y = Math.min(95, Math.max(5, (ev.clientY - r.top)/r.height*100));
-      const m = M(); if(m.flip){ x = 100 - x; y = 100 - y; }
-      const tpx = (document.querySelector('#pitch .tok:not(.ghost)') || {}).offsetWidth || 40;
-      const hit = oppOn(m).filter(q => q.x != null && q.n !== n).map(q => ({q, d:Math.hypot((q.x - x)/100*r.width, (q.y - y)/100*r.height)})).filter(o => o.d < tpx*0.8).sort((a, b) => a.d - b.d)[0];
+      if(ev.type === 'pointercancel') return;
+      const under = document.elementFromPoint(ev.clientX, ev.clientY), host = under && (under.closest('#pitch') || under.closest('.pitch.half'));
+      if(!host) return;
+      const m = M(), r = host.getBoundingClientRect(), half = host.classList.contains('half'), x0 = half ? +host.dataset.x0 : 0, ph = half ? host.dataset.ph : null;
+      let px = (ev.clientX - r.left)/r.width*100, py = (ev.clientY - r.top)/r.height*100;
+      if(host.classList.contains('flip')){ px = 100 - px; py = 100 - py; }
+      let x = half ? clampV(x0 + px/2, x0 + 3, x0 + 47) : clampV(px, 3, 97), y = clampV(py, 5, 95);
+      // avversario colpito: si guarda la pedina sullo schermo
+      const tpx = (host.querySelector('.tok:not(.ghost)') || {}).offsetWidth || 40;
+      const hitEl = [...host.querySelectorAll('.tok[data-tok]')].map(t => { const b2 = t.getBoundingClientRect(); return {t, d:Math.hypot(b2.left + b2.width/2 - ev.clientX, b2.top + b2.height/2 - ev.clientY)}; }).filter(o => o.d < tpx*0.8).sort((a, b) => a.d - b.d)[0];
+      const hq = hitEl && oppBy(hitEl.t.dataset.tok), hit = hq && hq.n !== n ? {q:hq} : null;
       if(hit){ // lasciato sopra un avversario in campo: cambio, chi entra prende posizione e marcatore
         const out = hit.q; let inn = m.their.find(q => q.n === n);
         if(!inn){ inn = {id:uid(), n, name:'', gk:false, on:false, h:0, cm:'', role:'', mk:null, ck:null, pb:false, note:''}; m.their.push(inn); }
@@ -995,7 +1140,11 @@ function bindBench(){
         if(UI.sel === out.id) UI.sel = null; save(); render();
         toast(`Cambio: esce ${out.n}, entra ${inn.n}${inn.mk ? ' · lo marca ' + nOur(inn.mk) : ''}`); return;
       }
-      const t = benchDrop(m, n, x, y);
+      let t;
+      if(half){ // entra in una fase: posizione nel master ricavata all'indietro, e in questa fase dove l'hai lasciato
+        const inv = {low:v => (v + 4)/0.55, high:v => (v - 50)/0.5, build:v => (v - 8)/0.5, att:v => 30 + (v - 58)/0.55}[ph];
+        t = benchDrop(m, n, clampV(inv(x), 3, 97), y); if(t) phSet(m, ph, 'opp', t.id, x, y);
+      } else t = benchDrop(m, n, x, y);
       if(started(m)) addNote({cat:'Marcature', side:'marc', text:`Entra in campo il n°${n}${t && t.mk ? ' (lo marca ' + nOur(t.mk) + ')' : ''}`, auto:true});
       const msg = autoSystem(m); save(); render();
       toast(msg || (oppOn(m).length < 11 ? `In campo il ${n} (${oppOn(m).length}/11)` : `In campo il ${n}`));
@@ -1131,7 +1280,7 @@ function bindPitch(){
     if(!t){ drag = {empty:true, sx:e.clientX, sy:e.clientY}; return; }   // tocco sul prato: toglie la selezione
     e.preventDefault(); t.setPointerCapture(e.pointerId);
     const p0 = t.dataset.tok && oppBy(t.dataset.tok);
-    drag = {t, id:t.dataset.tok, slot:t.dataset.slot, ghost:t.classList.contains('ghost'), chip:!!e.target.closest('.mk'), sx:e.clientX, sy:e.clientY, moved:false, ox:p0 ? p0.x : null, oy:p0 ? p0.y : null};
+    drag = {t, our:t.dataset.our || null, id:t.dataset.tok, slot:t.dataset.slot, ghost:t.classList.contains('ghost'), chip:!!e.target.closest('.mk'), sx:e.clientX, sy:e.clientY, moved:false, ox:p0 ? p0.x : null, oy:p0 ? p0.y : null};
   });
   pitch.addEventListener('pointermove', e => {
     if(drag && drag.empty){ if(Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy) > 10) drag = null; return; }
@@ -1147,6 +1296,14 @@ function bindPitch(){
   const end = () => {
     if(!drag) return;
     const d = drag; drag = null;
+    if(d.our){ // nostro giocatore nel master
+      if(!d.moved) return; d.t.classList.remove('dragging');
+      const m = M(); m.ourPos = Object.assign({}, ourMaster(m), m.ourPos || {});
+      const r = pitch.getBoundingClientRect(), tpx = d.t.offsetWidth || 40;
+      const other = field(m).filter(o => o.id !== d.our && m.ourPos[o.id]).map(o => ({o, dist:Math.hypot((m.ourPos[o.id].x - d.x)/100*r.width, (m.ourPos[o.id].y - d.y)/100*r.height)})).filter(z => z.dist < tpx*0.8).sort((a, b) => a.dist - b.dist)[0];
+      if(other){ const a = m.ourPos[d.our]; m.ourPos[d.our] = m.ourPos[other.o.id]; m.ourPos[other.o.id] = a; save(); render(); toast(`Scambiati ${ourBy(d.our).n} e ${other.o.n}`); return; }
+      m.ourPos[d.our] = {x:+d.x.toFixed(1), y:+d.y.toFixed(1)}; save(); return;
+    }
     if(d.empty){ if(UI.sel || UI.selSlot){ UI.sel = null; UI.selSlot = null; render(); } return; }
     if(d.ghost){ openKeypad(d.slot); return; }
     if(d.slot){ // modifica piano
@@ -1310,13 +1467,14 @@ function setKit(k, auto){ const m = M(); m.kit = k ? {...k, auto:!!auto} : null;
 
 /* ---- Cambi in blocco ---- */
 function swapOur(m, out, inn){
-  out.st = 'usc'; inn.st = 'tit'; if(out.gk) inn.gk = true;
+  out.st = 'usc'; inn.st = 'tit'; if(out.gk) inn.gk = true; phCopy(m, out.id, inn.id);
   const took = []; m.their.forEach(q => { if(q.mk === out.id){ q.mk = inn.id; took.push(q.n); } if(q.ck === out.id) q.ck = inn.id; });
   replaceNum(m, out.n, inn.n);
   if(m.subPlan) delete m.subPlan[out.id];
   return took;
 }
 function swapOpp(m, out, inn){
+  phCopy(m, out.id, inn.id);
   Object.assign(inn, {on:true, x:out.x, y:out.y, mk:out.mk, ck:out.ck, gk:out.gk, slot:out.slot});
   Object.assign(out, {on:false, exited:true, mk:null, ck:null, pb:false, gk:false, slot:null});
   if(m.oppSubPlan) delete m.oppSubPlan[out.id];
@@ -1792,7 +1950,7 @@ const ACT = {
   },
   saveSquad(){ S.metaMod = Date.now(); S.squad = [...M().our].sort(byN).map(p => ({n:p.n, name:p.name, fname:p.fname || '', gk:p.gk})); save(); render(); toast('Rosa predefinita salvata ('+S.squad.length+')'); },
   loadSquad(){ const m = M(); let k = 0; S.squad.forEach(s => { if(!m.our.some(p => p.n === s.n)){ m.our.push({id:uid(), n:s.n, name:s.name, fname:s.fname || '', gk:!!s.gk, st:'pan'}); k++; } }); save(); render(); toast(k + ' giocatori caricati: segna i titolari'); },
-  layout(){ const m = M(); layout(m); save(); S.view = 'campo'; render(); toast('Disposti col '+m.formation+': trascina per sistemare'); },
+  layout(){ const m = M(); layout(m); save(); render(); toast('Disposti col '+m.formation+': trascina per sistemare'); },
 
   tok(el){ const o = ['s','m','l'], i = Math.max(0, Math.min(2, o.indexOf(S.tok || 'm') + +el.dataset.d)); S.tok = o[i]; save(false, {pref:true}); render(); },
   kitOpen(){ kitModal(); },
@@ -1894,6 +2052,8 @@ const ACT = {
   kpN(el){ kpCommit(+el.dataset.n); },
   kpSkip(){ const m = M(), plan = activePlan(m), sid = MC.slotId; closeModal(); const nx = nextEmptySlot(m, plan, sid); if(nx && nx.id !== sid) openKeypad(nx.id); },
   sel(el){ UI.sel = el.dataset.id; render(); },
+  phase(el){ UI.phase = el.dataset.v; UI.sel = null; render(); },
+  phReset(){ const m = M(), phs = PHASES[UI.phase] || PHASES.dif; confirmModal('Riportare al master?', `Le pedine di «${phs[0].lab}» e «${phs[1].lab}» tornano alle posizioni ricavate dalla formazione del master.`, 'Riporta', () => { phs.forEach(P => { if(m.ph) delete m.ph[P.k]; }); save(); render(); toast('Fasi riallineate al master'); }); },
   desel(){ UI.sel = null; render(); },
   assign(el){ const p = oppBy(UI.sel); if(!p) return; assign(p, el.dataset.our); render(); },
   seqAssign(){ const nx = nextUnmarked(M()); if(!nx) return toast('Tutti gli avversari hanno un marcatore'); UI.sel = nx.id; render(); },
@@ -1908,6 +2068,7 @@ const ACT = {
     if(inn && inn.on) return toast('Il n°'+n+' è già in campo');
     if(!inn){ inn = {id:uid(), n, name:$('#sName').value.trim(), gk:false, on:true, h:0, cm:'', role:'', mk:null, ck:null, pb:false, note:''}; m.their.push(inn); }
     else if($('#sName').value.trim()) inn.name = $('#sName').value.trim();
+    phCopy(m, out.id, inn.id);
     Object.assign(inn, {on:true, x:out.x, y:out.y, mk:out.mk, ck:out.ck, gk:out.gk, slot:out.slot});
     Object.assign(out, {on:false, exited:true, mk:null, ck:null, pb:false, gk:false, slot:null});
     addNote({cat:'Marcature', side:'marc', text:`Cambio loro: esce ${out.n}, entra ${n}${inn.mk?' (lo marca '+nOur(inn.mk)+')':''}`, auto:true});
@@ -2093,6 +2254,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', e => {
   if(e.target.dataset.f === 'formation'){ render(); }
+  if(e.target.dataset.mf){ const m = M(), k = e.target.dataset.mf; if(k === 'fOur'){ m.fOur = e.target.value; m.ourPos = {}; } else { m.formation = e.target.value; layout(m); } save(); render(); toast('Modulo 1-' + e.target.value + ': trascina le pedine per sistemarle'); }
   if(e.target.dataset && e.target.dataset.out !== undefined){ subsCount(); }
   if(e.target.id === 'kPat'){ $('#kPrev').innerHTML = kitDot({c1:$('#kC1').value, c2:$('#kC2').value, ink:$('#kInk').value, pat:$('#kPat').value}, 40); }
   if(e.target.dataset.bf){ const m = M(); m.board[e.target.dataset.bf] = e.target.value; m.board.man = true; boardReset(m, e.target.dataset.bf === 'fOur' ? 'our' : 'opp'); save(); render(); }
@@ -2243,7 +2405,7 @@ function fbStatusText(){
   return 'Senza rete: lavori sul tablet e le modifiche partono appena torna internet.';
 }
 /* partita → mappa percorso → testo JSON */
-const FB_COLS = ['our', 'their', 'notes', 'hist'], FB_SEGS = ['sp', 'plans', 'board', 'clock', 'msg', 'kit', 'subPlan', 'oppSubPlan', 'hudl'], FB_LOCAL = ['mod', 'flip'];
+const FB_COLS = ['our', 'their', 'notes', 'hist'], FB_SEGS = ['sp', 'plans', 'board', 'clock', 'msg', 'kit', 'subPlan', 'oppSubPlan', 'hudl', 'ph', 'ourPos'], FB_LOCAL = ['mod', 'flip'];
 function fbFlat(m){
   const f = {}, meta = {};
   Object.keys(m).forEach(k => {
