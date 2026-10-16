@@ -966,26 +966,18 @@ const PHASES = {
 };
 const PH_X0 = {low:0, high:50, build:0, att:50};
 const clampV = (v, a, b) => Math.min(b, Math.max(a, v));
-function phAuto(m, ph, team, p, om, oppPos){
+function phAuto(m, ph, team, p, om){
+  // stessa disposizione del master, rimpicciolita nella metà campo della fase (le distanze tra i giocatori restano in proporzione)
   const isOppGK = team === 'opp' && oppGK(m) && oppGK(m).id === p.id, isOurGK = team === 'our' && ourGK(m) === p;
   const mp = team === 'opp' ? {x:p.x ?? 50, y:p.y ?? 50} : (om[p.id] || {x:30, y:50});
-  let x, y = mp.y;
-  if(ph === 'low'){ if(team === 'opp'){ x = isOppGK ? 75 : 0.55*mp.x - 4; } else { x = isOurGK ? 5 : 6 + (mp.x - 6)*0.6; } }
-  else if(ph === 'high'){
-    if(team === 'opp'){ x = isOppGK ? 97 : 50 + 0.5*mp.x; }
-    else { if(isOurGK) return {x:25, y:50};
-      const t = m.their.find(q => q.on && q.mk === p.id), tp = t && oppPos && oppPos[t.id];
-      if(tp) return {x:clampV(tp.x - 6.5, 51.5, 98.5), y:clampV(tp.y + 1.5, 4, 96)};
-      x = 52 + (mp.x - 6)*0.6; } }
-  else if(ph === 'build'){ if(team === 'opp'){ x = isOppGK ? 60 : 8 + 0.5*mp.x; } else { x = isOurGK ? 3 : 3 + (mp.x - 6)*0.95; y = 50 + (mp.y - 50)*1.15; } }
-  else { if(team === 'opp'){ x = isOppGK ? 96 : 58 + (mp.x - 30)*0.55; } else { x = isOurGK ? 40 : 54 + (mp.x - 6)*0.85; } }
-  const x0 = PH_X0[ph], hidden = (isOppGK && (ph === 'low' || ph === 'build')) || (isOurGK && (ph === 'high' || ph === 'att'));
-  return {x: hidden ? x : clampV(x, x0 + 3, x0 + 47), y: clampV(y, 4, 96)};
+  const x0 = PH_X0[ph], own = x0 === 0;   // metà nostra (blocco basso, costruzione) o loro (pressing alto, nella loro metà)
+  if((isOppGK && own) || (isOurGK && !own)) return {x: own ? 75 : 25, y:50};   // portiere fuori da questa metà
+  return {x: clampV(x0 + mp.x*0.5, x0 + 3, x0 + 47), y: clampV(mp.y, 4, 96)};
 }
 function phPositions(m, ph){
   const st = (m.ph && m.ph[ph]) || {}, so = st.opp || {}, su = st.our || {}, om = ourMaster(m), opp = {}, our = {};
   oppOn(m).forEach(q => { opp[q.id] = so[q.id] || phAuto(m, ph, 'opp', q, om); });
-  field(m).forEach(o => { our[o.id] = su[o.id] || phAuto(m, ph, 'our', o, om, opp); });
+  field(m).forEach(o => { our[o.id] = su[o.id] || phAuto(m, ph, 'our', o, om); });
   return {opp, our};
 }
 function phSet(m, ph, team, id, x, y){ m.ph = m.ph || {}; const st = m.ph[ph] || (m.ph[ph] = {}); (st[team] || (st[team] = {}))[id] = {x:+x.toFixed(1), y:+y.toFixed(1)}; }
@@ -1172,8 +1164,7 @@ function bindBench(){
       }
       let t;
       if(half){ // entra in una fase: posizione nel master ricavata all'indietro, e in questa fase dove l'hai lasciato
-        const inv = {low:v => (v + 4)/0.55, high:v => (v - 50)/0.5, build:v => (v - 8)/0.5, att:v => 30 + (v - 58)/0.55}[ph];
-        t = benchDrop(m, n, clampV(inv(x), 3, 97), y); if(t) phSet(m, ph, 'opp', t.id, x, y);
+        t = benchDrop(m, n, clampV((x - x0)*2, 3, 97), y); if(t) phSet(m, ph, 'opp', t.id, x, y);
       } else t = benchDrop(m, n, x, y);
       if(started(m)) addNote({cat:'Marcature', side:'marc', text:`Entra in campo il n°${n}${t && t.mk ? ' (lo marca ' + nOur(t.mk) + ')' : ''}`, auto:true});
       const msg = autoSystem(m); save(); render();
