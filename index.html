@@ -109,7 +109,12 @@ main{padding:12px;padding-bottom:40px}
 .phrows{display:flex;gap:40px;width:100%;justify-content:center}
 .phrow{flex:1 1 0;min-width:0;border:4px solid var(--phc);border-radius:14px;padding:4px 6px 8px;position:relative;--phc:#1f5fd1}
 .phrow.off{--phc:#f08a00}
-.phrow + .phrow::before{content:'';position:absolute;left:-24px;top:8px;bottom:8px;border-left:2px dashed var(--line)}
+.campo3{display:grid;grid-template-columns:minmax(0,1fr) clamp(250px, 22vw, 330px) minmax(0,1fr);gap:16px;align-items:start}
+.campo3 .panel.mid{position:static;max-height:none;padding:12px}
+.campo3 .panel.mid .zn .tag{grid-template-columns:38px 1fr 38px;min-height:48px}
+.campo3 .panel.mid .zn .tag button{font-size:.85rem}
+.campo3 .halves .halfwrap{flex:0 0 min(calc(50% - 6px), calc((100vh - 330px) * 52.5 / 68))}
+@media (max-width:980px){ .campo3{grid-template-columns:1fr} }
 .phrow .phtitle,.phrow .hlab{color:var(--phc)}
 .pitch.half .atk{position:absolute;top:2%;left:50%;transform:translateX(-50%);color:#fff;opacity:.55;font-size:1.3rem;line-height:1;pointer-events:none}
 .halves .halfwrap{flex:0 0 min(calc(50% - 6px), calc((100vh - 310px) * 52.5 / 68))}
@@ -119,7 +124,7 @@ main{padding:12px;padding-bottom:40px}
 .pitch.half .tok{font-size:calc(var(--t)*.48)}
 .phrow{width:100%;margin-bottom:6px}
 .phtitle{font-weight:700;font-size:.9rem;margin:0 0 2px;text-align:center}
-.campo .pitch.half{--t:calc(var(--tb) * .85);aspect-ratio:52.5/68;width:100%;background:repeating-linear-gradient(90deg,var(--pitch) 0 19.04%,var(--pitch2) 19.04% 38.08%)}
+.campo3 .pitch.half{--t:calc(var(--tb) * .85);aspect-ratio:52.5/68;width:100%;background:repeating-linear-gradient(90deg,var(--pitch) 0 19.04%,var(--pitch2) 19.04% 38.08%)}
 .pitch.half .hsvg{position:absolute;top:0;bottom:0;width:200%;pointer-events:none}
 .pitch.half .hsvg svg{position:absolute;inset:0;width:100%;height:100%}
 .phseg button{min-width:150px}
@@ -996,14 +1001,14 @@ function renderCampo(m){
   return `<div class="planbar"><span class="pl">Sistema avversario</span>
     ${plans.map(p => `<button class="plchip ${m.activePlan === p.id ? 'on' : ''}" data-act="planAct" data-id="${p.id}">${esc(p.name)}</button>`).join('')}
     <span style="flex:1"></span><button class="btn" data-act="phReset" title="Riporta le pedine di questo campo alla formazione del master">↺ Dal master</button>${tokSizer()}<button class="btn ${m.flip ? 'pri' : ''}" data-act="flip" title="Gira il campo come lo vedi dalla panchina">⟲ Gira campo</button></div>
-  <div class="campo">
-    <div class="pitchwrap">
-      <div class="phrows">${rows.map(([t, phs, c]) => `<div class="phrow ${c}"><div class="phtitle">${t}</div><div class="halves">${(m.flip ? [phs[1], phs[0]] : phs).map(P => halfHTML(m, P, m.flip)).join('')}</div></div>`).join('')}</div>
+  <div class="campo3">
+    ${(() => { const blk = ([t, phs, c]) => `<div class="phrow ${c}"><div class="phtitle">${t}</div><div class="halves">${(m.flip ? [phs[1], phs[0]] : phs).map(P => halfHTML(m, P, m.flip)).join('')}</div></div>`;
+      return blk(rows[0]) + `<aside class="card panel mid">${UI.sel ? panelSel(m, oppBy(UI.sel)) : panelZone(m)}</aside>` + blk(rows[1]); })()}
+  </div>
+  <div class="pitchwrap">
       ${benchHTML(m)}
       <div class="pitchfoot"><span>${on.length ? 'Le pedine partono dal master (Pre-partita): trascinale per sistemarle in questa fase. Tocca un avversario per il marcatore, doppio tocco per il cambio.' : '<b>Inserisci la formazione nel campo master in Pre-partita, oppure trascina i numeri dalla panchina.</b>'}</span>
       <span>${unmarked.length ? `<b style="color:var(--warn)">Senza marcatore: ${unmarked.map(p => p.n).join(', ')}</b>` : (on.length ? '<b style="color:var(--ok)">Tutti marcati</b>' : '')}</span></div>
-    </div>
-    <aside class="card panel">${UI.sel ? panelSel(m, oppBy(UI.sel)) : panelZone(m)}</aside>
   </div>`;
 }
 /* trascinamento nelle metà campo */
