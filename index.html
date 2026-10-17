@@ -572,6 +572,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
+const APP_VER = 'v49';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -1891,6 +1892,7 @@ function renderArch(m){
       <div class="btnrow"><button class="btn pri" data-act="exportMatch" data-id="${m.id}">Esporta partita (file)</button><button class="btn" data-act="hudlOpen">Tag per Hudl (XML)</button><button class="btn" data-act="print">Stampa / salva PDF</button><button class="btn" data-act="newMatch">Nuova partita</button></div>
       <p class="hint">I dati restano salvati su questo tablet. Dopo ogni partita esporta il file e mettilo in Dropbox: è la tua copia di sicurezza.</p>
       <p class="hint">Stato salvataggio: <b>${storageOK ? 'attivo su questo tablet' : 'NON disponibile: esporta prima di chiudere la pagina'}</b>.</p>
+      <p class="hint" data-noi18n>Versione app: <b>${APP_VER}</b></p>
     </div>
     <div class="card"><h2>Lingua</h2><div class="btnrow">${LANGS.map(([k,n]) => `<button class="btn ${k===LANG?'pri':''}" data-act="setLang" data-l="${k}" data-noi18n>${n}</button>`).join('')}</div><p class="hint">La lingua vale solo per questo dispositivo: i dati restano gli stessi per tutti.</p></div>
     <div class="card"><h2>Lavoro in squadra (in diretta)</h2>${fbCardHtml()}</div>
@@ -3287,7 +3289,7 @@ if(M().clock.run && !M().clock.t0) M().clock.run = false;
 render();
 setTimeout(() => { if(fbOn()) fbConnect(); else syncNow(false); }, 800);
 if(!storageOK) toast('Salvataggio non disponibile: esporta la partita prima di chiudere');
-if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){ window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); }); }
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){ window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).then(r => { r.update(); document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') r.update(); }); }).catch(() => {}); }); }
 </script>
 </body>
 </html>
