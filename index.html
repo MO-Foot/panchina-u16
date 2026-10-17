@@ -353,12 +353,12 @@ svg.trace circle{fill:none;stroke:#fff;stroke-width:.35;stroke-dasharray:1 .8;op
 .ccol .spc{padding:6px 8px 8px}
 .ccol .spc.area{grid-column:1/-1}
 .ccol .pn b{font-size:1.9rem}
-.ccol .pn small{font-size:.66rem;max-width:84px}
+.ccol .pn small{font-size:.66rem;max-width:70px}
 .ccol .spn{gap:10px;margin-top:4px}
 .ccol h3{margin:6px 0 4px;font-size:.9rem}
 .ccol .hint{display:none}
 .ccol .mklist{display:grid;grid-template-columns:1fr 1fr;column-gap:6px}
-.ccol .mkrow{grid-template-columns:58px 14px 1fr;gap:5px;padding:4px 4px}
+.ccol .mkrow{grid-template-columns:70px 14px 1fr;gap:5px;padding:4px 4px}
 .ccol .mkrow:last-child{border-bottom:1px solid var(--line)}
 .ccol .mkrow .arr{font-size:1rem}
 .ccol .opb{min-height:40px;font-size:.76rem;line-height:1.15;gap:6px;padding:3px 7px}
@@ -383,7 +383,7 @@ svg.trace circle{fill:none;stroke:#fff;stroke-width:.35;stroke-dasharray:1 .8;op
 .pn b{font-size:2.3rem;line-height:.95;font-weight:700;color:var(--our)}
 .pn small{font-size:.7rem;color:var(--muted);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pn.off b,.pn.nr b{color:var(--warn)}
-.pn.off small::after{content:" · non in campo";color:var(--warn)}
+.pn.off small{color:var(--warn)}
 .mkrow{display:grid;grid-template-columns:84px 24px 1fr;align-items:center;gap:8px;padding:5px 8px;border-bottom:1px solid var(--line)}
 .mkrow:last-child{border-bottom:0}
 .mkrow .arr{font-size:1.2rem;color:var(--muted);text-align:center}
@@ -572,7 +572,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v51';
+const APP_VER = 'v52';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -1716,7 +1716,7 @@ const ourByN = n => M().our.find(p => p.n === n);
 function nums(sch, sl, side){ return (sch.sides ? sl.p[side || UI.side] : sl.p.all) || []; }
 function setNums(sch, sl, arr){ if(sch.sides) sl.p[UI.side] = arr; else sl.p.all = arr; }
 function pn(n){ const p = ourByN(n); const cls = !p ? 'nr' : (p.st === 'tit' ? '' : 'off');
-  return `<span class="pn ${cls}"><b>${n}</b><small>${p ? (esc(p.name) || '&nbsp;') : 'non in rosa'}</small></span>`; }
+  return `<span class="pn ${cls}"><b>${n}</b><small>${p ? (esc(surname(p)) || '&nbsp;') : 'non in rosa'}</small></span>`; }
 function replaceNum(m, a, b){ (m.plans || []).forEach(pl => pl.slots.forEach(s => { if(s.mk === a) s.mk = b; })); (m.sp || []).forEach(sch => sch.slots.forEach(sl => Object.keys(sl.p).forEach(k => { sl.p[k] = sl.p[k].map(x => x === a ? b : x); }))); }
 function setCk(ourId, oppId){
   const m = M(), prevOpp = oppOn(m).find(q => q.ck === ourId), target = oppId ? oppBy(oppId) : null;
