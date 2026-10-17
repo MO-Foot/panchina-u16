@@ -852,7 +852,9 @@ function layout(m){
   const rest = on.filter(p => p !== gk).sort(byN);
   const list = [gk || null, ...rest];
   const pos = assignRoles(list.map(p => p ? p.n : null), rolePositions(m.formation, 'opp', campoX));
-  list.forEach((p, i) => { if(!p) return; const q = pos[i] || {x:50, y:50}; p.x = q.x; p.y = q.y; });
+  const ours = m.ourPos && Object.keys(m.ourPos).length ? Object.values(m.ourPos) : [];   // nostri già sistemati a mano: gli avversari non ci finiscono sopra
+  const taken = [...ours];
+  list.forEach((p, i) => { if(!p) return; const q = clashFree(pos[i] || {x:50, y:50}, taken); p.x = q.x; p.y = q.y; taken.push(q); });
 }
 /* ---- Numerazione standard per ruolo ----
    Ogni linea va dalla destra alla sinistra della squadra (per l'avversario: dall'alto al basso dello schermo). */
@@ -1010,6 +1012,17 @@ function renderMaster(m){
   </div>`;
 }
 /* ---- Posizioni nostre nel master: dal modulo, poi spostate a mano ---- */
+/* evita pedine una sopra l'altra: se il posto è occupato, sposta un po' in verticale o in orizzontale */
+function clashFree(p, others, min){
+  min = min || 6.5;
+  const hit = (x, y) => others.some(o => o && o.x != null && Math.hypot(o.x - x, (o.y - y) * 0.68 / 1.05) < min);
+  if(!hit(p.x, p.y)) return p;
+  for(const [dx, dy] of [[0,11],[0,-11],[-6,0],[6,0],[-5,11],[-5,-11],[5,11],[5,-11],[0,18],[0,-18]]){
+    const x = p.x + dx, y = p.y + dy; if(x < 3 || x > 97 || y < 5 || y > 95) continue;
+    if(!hit(x, y)) return {x:+x.toFixed(1), y:+y.toFixed(1)};
+  }
+  return p;
+}
 function ourMaster(m){
   const tit = field(m), pos = m.ourPos || {}, out = {};
   const missing = tit.filter(o => !pos[o.id]);
@@ -1017,7 +1030,8 @@ function ourMaster(m){
     const gk = ourGK(m), rest = tit.filter(o => o !== gk).sort(byN);
     const nums = [gk ? gk.n : 'P', ...rest.map(o => o.n)], pl = boardPlace(nums, m.fOur || '4-3-3', 'our', true);
     const by = {}; [gk, ...rest].forEach((o, i) => { if(o && pl[i]) by[o.id] = {x:pl[i].x, y:pl[i].y}; });
-    tit.forEach(o => { out[o.id] = pos[o.id] || by[o.id] || {x:30, y:50}; });
+    const taken = [...oppOn(m).map(q => ({x:q.x, y:q.y})), ...tit.filter(o => pos[o.id]).map(o => pos[o.id])];
+    tit.forEach(o => { if(pos[o.id]) out[o.id] = pos[o.id]; else { const q = clashFree(by[o.id] || {x:30, y:50}, taken); out[o.id] = q; taken.push(q); } });
   } else tit.forEach(o => { out[o.id] = pos[o.id]; });
   return out;
 }
