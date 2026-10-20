@@ -592,7 +592,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v61';
+const APP_VER = 'v62';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -1778,6 +1778,24 @@ function nums(sch, sl, side){ return (sch.sides ? sl.p[side || UI.side] : sl.p.a
 function setNums(sch, sl, arr){ if(sch.sides) sl.p[UI.side] = arr; else sl.p.all = arr; }
 function pn(n){ const p = ourByN(n); const cls = !p ? 'nr' : (p.st === 'tit' ? '' : 'off');
   return `<span class="pn ${cls}"><b>${n}</b><small>${p ? (esc(surname(p)) || '&nbsp;') : 'non in rosa'}</small></span>`; }
+/* formazione: chi esce dai titolari lascia il posto; il primo che diventa titolare dopo eredita posizione nel master e nelle fasi, marcature e compiti nelle palle ferme */
+function lineupChange(m, p, was){
+  if(!p || was === p.st) return;
+  m.vacant = (m.vacant || []).filter(id => { const v = ourBy(id); return v && v.st !== 'tit'; });
+  if(was === 'tit' && p.st !== 'tit'){ if(!m.vacant.includes(p.id)) m.vacant.push(p.id); return; }
+  if(p.st !== 'tit' || !m.vacant.length) return;
+  const v = ourBy(m.vacant.shift()); if(!v) return;
+  const snap = {sp:clone(m.sp), plans:clone(m.plans || []), ourPos:clone(m.ourPos || {}), ph:clone(m.ph || {}), opp:m.their.map(q => [q.id, q.mk || null, q.ck || null]), gk:[v.gk, p.gk], vacant:[v.id, ...m.vacant]};
+  if(m.ourPos && m.ourPos[v.id]){ m.ourPos[p.id] = m.ourPos[v.id]; delete m.ourPos[v.id]; }
+  Object.values(m.ph || {}).forEach(st => { if(st && st.our && st.our[v.id]){ st.our[p.id] = st.our[v.id]; delete st.our[v.id]; } });
+  m.their.forEach(q => { if(q.mk === v.id) q.mk = p.id; if(q.ck === v.id) q.ck = p.id; });
+  if(v.gk){ p.gk = true; v.gk = false; }
+  replaceNum(m, v.n, p.n);
+  setTimeout(() => toast(`Il ${p.n} prende il posto del ${v.n}: posizione, marcature e palle ferme`, 'Annulla', () => {
+    const mm = M(); mm.sp = snap.sp; mm.plans = snap.plans; mm.ourPos = snap.ourPos; mm.ph = snap.ph; mm.vacant = snap.vacant;
+    snap.opp.forEach(([id, mk, ck]) => { const q = mm.their.find(x => x.id === id); if(q){ q.mk = mk; q.ck = ck; } });
+    const vv = ourBy(v.id), pp = ourBy(p.id); if(vv) vv.gk = snap.gk[0]; if(pp) pp.gk = snap.gk[1]; save(); render(); }), 30);
+}
 function replaceNum(m, a, b){ (m.plans || []).forEach(pl => pl.slots.forEach(s => { if(s.mk === a) s.mk = b; })); (m.sp || []).forEach(sch => sch.slots.forEach(sl => Object.keys(sl.p).forEach(k => { sl.p[k] = sl.p[k].map(x => x === a ? b : x); }))); }
 function setCk(ourId, oppId){
   const m = M(), prevOpp = oppOn(m).find(q => q.ck === ourId), target = oppId ? oppBy(oppId) : null;
@@ -2154,7 +2172,7 @@ const ACT = {
       save(); render(); });
   },
   addOur(){ addPlayer('our'); }, addOpp(){ addPlayer('opp'); },
-  cycleOur(el){ const p = ourBy(el.dataset.id); p.st = {tit:'pan', pan:'out', out:'tit', usc:'pan'}[p.st]; save(); render(); },
+  cycleOur(el){ const p = ourBy(el.dataset.id), was = p.st; p.st = {tit:'pan', pan:'out', out:'tit', usc:'pan'}[p.st]; lineupChange(M(), p, was); save(); render(); },
   editOur(el, e){ e.stopPropagation(); UI.confirmDel = null; editPlayerModal('our', el.dataset.id); },
   editOpp(el){ UI.confirmDel = null; editPlayerModal('opp', el.dataset.id); },
   ePSave(){
@@ -2163,13 +2181,14 @@ const ACT = {
     if(!(n >= 0 && n < 100)) return toast('Numero non valido');
     if(arr.some(q => q.n === n && q.id !== p.id)) return toast('Il n°'+n+' è già usato');
     if(side === 'our' && p.n !== n) replaceNum(m, p.n, n);
+    const wasSt = p.st;
     p.n = n; p.name = $('#eName').value.trim();
     if(side === 'our') p.fname = $('#eFname').value.trim();
     const gk = $('#eGK').checked;
     if(gk && side === 'opp') arr.forEach(q => { if(q !== p) q.gk = false; });
     p.gk = gk;
     if(side === 'opp'){ const on = $('#eOn').checked; if(on && !p.on && oppOn(m).length >= 11) toast('Attenzione: più di 11 in campo'); p.on = on; if(!on){ p.mk = null; p.ck = null; } }
-    else { p.st = $('#eSt').value; if(p.st !== 'tit') m.their.forEach(q => { if(q.mk === p.id) q.mk = null; if(q.ck === p.id) q.ck = null; }); }
+    else { p.st = $('#eSt').value; lineupChange(m, p, wasSt); }
     save(); closeModal(); render();
   },
   ePDel(){
@@ -3542,6 +3561,7 @@ const I18N_RX = [
 [/^Disposizione salvata: «(.*)»$/, ['Aufstellung gespeichert: «$1»','Disposition enregistrée : «$1»','Layout saved: «$1»']],
 [/^Ripristinare «(.*)»\?$/, ['«$1» wiederherstellen?','Restaurer «$1» ?','Restore «$1»?']],
 [/^Ripristinata «(.*)»$/, ['«$1» wiederhergestellt','«$1» restaurée','«$1» restored']],
+[/^Il (\d+) prende il posto del (\d+): posizione, marcature e palle ferme$/, ['Nr. $1 ersetzt Nr. $2: Position, Deckung und Standards','Le $1 prend la place du $2 : position, marquages et coups de pied arrêtés','No. $1 replaces no. $2: position, marking and set pieces']],
 [/^PowerPoint pronto: (.*)$/, ['PowerPoint bereit: $1','PowerPoint prêt : $1','PowerPoint ready: $1']],
 [/^PowerPoint non creato: (.*)$/, ['PowerPoint nicht erstellt: $1','PowerPoint non créé : $1','PowerPoint not created: $1']],
 [/^«(.*)» è già attiva$/, ['«$1» ist schon aktiv','«$1» est déjà active','«$1» is already active']],
