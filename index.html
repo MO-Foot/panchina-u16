@@ -594,7 +594,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v70';
+const APP_VER = 'v71';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -3109,7 +3109,7 @@ setInterval(bigTick, 500);
 .scorebar{display:flex;align-items:center;justify-content:center;gap:18px;padding:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
 .scorebar .sc{font:700 3rem/1 var(--num)}.scorebar .sc i{font-style:normal;margin:0 10px;color:var(--muted)}
 .scorebar .sc-t{font:700 1.4rem/1 var(--num);min-width:100px}.scorebar .sc-t:first-child{text-align:right}
-.evgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.evgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:stretch}.evgrid>.evside{margin:3px;display:flex;flex-direction:column}
 .evside.nois{border:4px solid #d52b1e}.evside.avv{border:4px solid var(--opp-c1,#9aa0a6);box-shadow:0 0 0 3px var(--opp-c2,transparent);margin:3px}
 .evbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
 .evbtns .btn{min-height:56px;font-size:1.05rem}
