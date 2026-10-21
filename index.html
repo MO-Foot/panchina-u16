@@ -594,7 +594,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v66';
+const APP_VER = 'v67';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -3270,6 +3270,7 @@ function spImgModel(m, sch){
   const S2 = id => sch.slots.find(x => x.id === id), val = sl => sl ? (sch.sides ? (sl.p[side] || []) : (sl.p.all || [])) : [];
   const ip = sch.ipos || {}, cur = ip[side] || {}, other = ip[side === 'sx' ? 'dx' : 'sx'] || {}, legacy = (!sch.ipos && sch.pos) || {};
   const at = (key, x, y) => cur[key] || (C.mirror && other[key] ? [+(100 - other[key][0]).toFixed(1), other[key][1]] : null) || (side === 'dx' && legacy[key]) || [X(x), y];
+  const atN = key => cur[key] || (C.mirror && other[key] ? [+(100 - other[key][0]).toFixed(1), other[key][1]] : null);   // posizione legata al giocatore (compito#numero)
   const items = [];
   const vicN = sch.type === 'cdif' ? val(S2('vic')) : [];
   if(C.gk){ const gk = ourGK(m), q = at('gk', C.gk[0], C.gk[1]); items.push({kind:'gk', key:'gk', n:gk ? gk.n : 1, p:gk, x:q[0], y:q[1]}); }
@@ -3279,13 +3280,13 @@ function spImgModel(m, sch){
     if(!arr.length){ const q = at(id + ':0', pos[0][0], pos[0][1]); items.push({kind:'empty', key:id + ':0', sl, x:q[0], y:q[1]}); return; }
     const step = pos.length > 1 ? pos[1][0] - pos[0][0] : 5, P0 = i => i < pos.length ? pos[i] : [pos[pos.length - 1][0] + (i - pos.length + 1) * step, pos[pos.length - 1][1]];
     let lastX = 0, lastY = 0;
-    arr.forEach((n, i) => { const b = P0(i), q = at(id + ':' + i, b[0], b[1]); lastX = q[0]; lastY = q[1];
-      items.push({kind:'our', key:id + ':' + i, sl, n, p:ourByN(n), x:q[0], y:q[1], pink:vicN.includes(n) && sch.type === 'cdif'}); });
+    arr.forEach((n, i) => { const b = P0(i), q = atN(sl.id + '#' + n) || at(id + ':' + i, b[0], b[1]); lastX = q[0]; lastY = q[1];
+      items.push({kind:'our', key:sl.id + '#' + n, sl, n, p:ourByN(n), x:q[0], y:q[1], pink:vicN.includes(n) && sch.type === 'cdif'}); });
     const maxN = (C.max && C.max[id]) || pos.length;
     if((pos.length > 1 || (C.max && C.max[id])) && arr.length < maxN) items.push({kind:'add', sl, x:+(lastX + (mir ? -1 : 1) * Math.abs(step) * .72).toFixed(1), y:lastY});
   });
   // giocatori aggiunti a mano («+ Nostro»)
-  const xs = S2('xtra'); if(xs) val(xs).forEach((n, i) => { const q = at('xtra:' + n, 44 + (i % 4) * 6, 60 + Math.floor(i / 4) * 9); items.push({kind:'our', key:'xtra:' + n, sl:xs, n, p:ourByN(n), x:q[0], y:q[1]}); });
+  const xs = S2('xtra'); if(xs) val(xs).forEach((n, i) => { const q = atN('xtra#' + n) || at('xtra:' + n, 44 + (i % 4) * 6, 60 + Math.floor(i / 4) * 9); items.push({kind:'our', key:'xtra#' + n, sl:xs, n, p:ourByN(n), x:q[0], y:q[1]}); });
   // avversari: prima quelli marcati (corner difensivo), poi gli altri
   const ogk = oppGK(m), mkS = S2('mk'), table = C.table && mkS;
   if(table){ const cl = val(mkS), ord = [...cl.filter(n => !vicN.includes(n)), ...cl.filter(n => vicN.includes(n))]; if(ord.join() !== cl.join()){ mkS.p.all = ord; sch._dirty = true; } }
@@ -3363,6 +3364,38 @@ ACT.spPosReset = el => { const sch = M().sp.find(x => x.id === el.dataset.sch); 
   sch.ipos = sch.ipos || {}; sch.ioppPos = sch.ioppPos || {}; sch.ipos[side] = {}; sch.ioppPos[side] = {}; if(side === 'dx') delete sch.pos; save(); render(); };
 ACT.spNamesT = () => { S.spNames = S.spNames === false; save(true, {pref:true}); render(); };
 /* trascinare maglie e avversari sull'immagine */
+/* maglia lasciata sull'immagine: se cade su un compagno i due si scambiano il compito;
+   se cade vicino a una linea (es. linea dei 4, blocco, barriera) entra in quella linea */
+function spDropOur(m, sch, side, key, v){
+  const md = spImgModel(m, sch); delete sch._dirty;
+  const ours = md.items.filter(it => it.kind === 'our'), me = ours.find(it => it.key === key);
+  const P = sch.ipos[side] || (sch.ipos[side] = {});
+  ours.forEach(it => { if(!P[it.key]) P[it.key] = [it.x, it.y]; });   // tutti restano dove sono
+  P[key] = v; if(!me) return;
+  const pk = sch.sides ? side : 'all', arr = sl => sl.p[pk] || (sl.p[pk] = []);
+  const dist = it => Math.hypot(it.x - v[0], (it.y - v[1]) * 746 / 1600);
+  const isLine = sl => { const c = md.C.slots[sl.id]; return sl.id === 'xtra' || (c && c.length > 1) || !!(md.C.max && md.C.max[sl.id]); };
+  const byD = ours.filter(it => it !== me).map(it => [dist(it), it]).sort((a, b) => a[0] - b[0]), near = byD[0];
+  if(!near) return;
+  let [d, o] = near;
+  if(d < 3.2){   // sopra un compagno: scambio
+    const pMe = [me.x, me.y], pO = [o.x, o.y];
+    if(o.sl === me.sl || arr(o.sl).includes(me.n) || arr(me.sl).includes(o.n)){ P[key] = pO; P[o.key] = pMe; return; }
+    arr(me.sl).splice(arr(me.sl).indexOf(me.n), 1, o.n); arr(o.sl).splice(arr(o.sl).indexOf(o.n), 1, me.n);
+    delete P[me.key]; delete P[o.key]; P[me.sl.id + '#' + o.n] = pMe; P[o.sl.id + '#' + me.n] = pO;
+    noteSwap(sch, me.n, o.n);
+    toast(`Il ${me.n} e il ${o.n} si scambiano il compito`);
+    return;
+  }
+  const L = byD.find(([, it]) => isLine(it.sl)); if(!L || !isLine(me.sl)) return; [d, o] = L;   // la linea più vicina
+  if(d < 9 && o.sl !== me.sl && !arr(o.sl).includes(me.n)){   // vicino a un'altra linea: ci entra
+    arr(me.sl).splice(arr(me.sl).indexOf(me.n), 1); arr(o.sl).push(me.n);
+    delete P[key]; P[o.sl.id + '#' + me.n] = v;
+    [me.sl, o.sl].forEach(sl => { const xs = n => (P[sl.id + '#' + n] || [0])[0] * (md.mir ? -1 : 1); sl.p[pk] = arr(sl).slice().sort((a, b) => xs(a) - xs(b)); });   // ordine da sinistra a destra come in campo
+    toast(`Il ${me.n} passa in «${tr(o.sl.label)}»`);
+  }
+}
+function noteSwap(sch, a, b){ if(!sch.note) return; noteNum(sch, a, -1); noteNum(sch, b, a); sch.note = sch.note.replace(/(^|[^\d])-1(?=\s*[:)])/g, '$1' + b); }
 function bindSpImg(){
   document.querySelectorAll('.spimg').forEach(box => {
     let d = null;
@@ -3379,7 +3412,9 @@ function bindSpImg(){
       const v = [+k.x.toFixed(1), +k.y.toFixed(1)];
       if(!sch.ipos){ sch.ipos = {dx:Object.assign({}, sch.pos || {}), sx:{}}; delete sch.pos; }
       if(!sch.ioppPos){ sch.ioppPos = {dx:Object.assign({}, sch.oppPos || {}), sx:{}}; delete sch.oppPos; }
-      if(k.key.startsWith('o:')) (sch.ioppPos[side] || (sch.ioppPos[side] = {}))[k.key.slice(2)] = v; else (sch.ipos[side] || (sch.ipos[side] = {}))[k.key] = v;
+      if(k.key.startsWith('o:')) (sch.ioppPos[side] || (sch.ioppPos[side] = {}))[k.key.slice(2)] = v;
+      else if(k.key.includes('#')) spDropOur(M(), sch, side, k.key, v);
+      else (sch.ipos[side] || (sch.ipos[side] = {}))[k.key] = v;
       save(); setTimeout(render, 0); };
     box.addEventListener('pointerup', end); box.addEventListener('pointercancel', end);
     box.addEventListener('click', e => { if(UI.spDragT && Date.now() - UI.spDragT < 350){ e.stopPropagation(); e.preventDefault(); UI.spDragT = 0; } }, true);
