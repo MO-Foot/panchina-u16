@@ -594,7 +594,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v67';
+const APP_VER = 'v68';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -1847,7 +1847,10 @@ function spCard(label, arr, cls, sl){
 }
 /* nella nota «6: …» il numero segue il giocatore: se il 6 viene sostituito dall'8, la nota dice «8: …» */
 function noteNum(sch, a, b){ if(!sch || !sch.note || a === b) return; sch.note = sch.note.replace(new RegExp('(^|[^\\d])' + a + '(?=\\s*[:)])', 'g'), '$1' + b); }
-function spView(m, sch){ return (sch.note ? `<button class="spnote" data-act="spNoteEd" data-sch="${esc(sch.id)}" title="Modifica la nota">${esc(sch.note)}<span class="ed">✎</span></button>` : '') + spViewBody(m, sch); }
+/* corner difensivo: la frase «N: se ci sono uomini da marcare…» è il compito dell'uomo vicino al battitore, quindi N è sempre chi sta in «vic» */
+function noteFix(sch){ if(!sch || sch.type !== 'cdif' || !sch.note) return; const v = sch.slots.find(x => x.id === 'vic'); const n = v && (sch.sides ? (v.p[UI.side] || []) : (v.p.all || []));
+  if(n && n.length) sch.note = sch.note.replace(/^[\d\s\/,e]*(?=:\s*se ci sono uomini da marcare)/i, n.join('/')); }
+function spView(m, sch){ noteFix(sch); return (sch.note ? `<button class="spnote" data-act="spNoteEd" data-sch="${esc(sch.id)}" title="Modifica la nota">${esc(sch.note)}<span class="ed">✎</span></button>` : '') + spViewBody(m, sch); }
 function spViewBody(m, sch){
   if(spImgOn(sch)) return spImgView(m, sch);
   const imgBtn = SPIMG[sch.type] ? `<div class="spimgbar"><div class="seg"><button data-act="spImgShow" data-t="${sch.type}">Immagine</button><button class="on" disabled style="opacity:1">Elenco</button></div></div>` : '';
@@ -3234,7 +3237,7 @@ function applySpPdf(found){
       else sl.p.all = r.assign[id + '|all'] || [];
     });
     if(R.order) sch.slots.sort((a, b) => { const ia = R.order.indexOf(a.id), ib = R.order.indexOf(b.id); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); });
-    if(R.note) sch.note = R.note;
+    if(R.note){ sch.note = R.note; noteFix(sch); }
   });
   save(); render();
 }
@@ -3502,7 +3505,7 @@ async function spAddSlide(pptx, m, sch, side){
       sl.addText([{text:names && o ? surname(o) : '', options:{color:'C8102E', fontSize:9, breakLine:true}}, {text:info || (opp ? '→ ' + opp.n : ''), options:{color:'14181F', fontSize:10, bold:true}}], {shape:pptx.ShapeType.roundRect, rectRadius:.1, x:R ? px(100 - 7.1 - 11.7) : px(7.1), y:py(y) - bh / 2, w:px(11.7), h:bh, fill:{color:'FFFFFF'}, line:{color:'222222', width:1}, align:'center', valign:'middle', fontFace:'Arial'});
       sl.addText(opp ? String(opp.n) : '', {shape:pptx.ShapeType.roundRect, rectRadius:.1, x:R ? px(100 - 19.9 - 4) : px(19.9), y:py(y) - bh / 2, w:px(4), h:bh, fill:{color:'FFFFFF'}, line:{color:'222222', width:1}, align:'center', valign:'middle', fontSize:16, bold:true, color:'14181F', fontFace:'Arial'}); });
   }
-  if(sch.note) sl.addNotes(sch.note);
+  noteFix(sch); if(sch.note) sl.addNotes(sch.note);
 }
 ACT.spPptx = async el => {
   const m = M(); toast('Preparo il PowerPoint…');
@@ -3579,7 +3582,7 @@ function pvSection(m, sch){
       return `<div class="mkr">${pvP(n)}<span class="arr">→</span>${opp ? `<span class="opp"><b>${opp.n}</b>${info ? `<span>${esc(info)}</span>` : ''}</span>` : '<span class="none">da definire</span>'}</div>`; }).join('');
     body += `<h3>${esc(mk.label)}</h3><div class="mk">${rows || '<span class="none">—</span>'}</div>`;
   }
-  return `<section id="pv-${esc(sch.id)}" data-pv="${esc(sch.id)}"><h2>${esc(sch.name)}</h2>${sch.note ? `<p class="pvnote">⚠ ${esc(sch.note)}</p>` : ''}${body}</section>`;
+  noteFix(sch); return `<section id="pv-${esc(sch.id)}" data-pv="${esc(sch.id)}"><h2>${esc(sch.name)}</h2>${sch.note ? `<p class="pvnote">⚠ ${esc(sch.note)}</p>` : ''}${body}</section>`;
 }
 function pvMine(m){
   const players = m.our.filter(p => p.st === 'tit' || p.st === 'pan').sort((a, b) => (a.st === 'tit' ? 0 : 1) - (b.st === 'tit' ? 0 : 1) || a.n - b.n);
@@ -3650,6 +3653,7 @@ const I18N_RAW = "Pre-partita\tVor dem Spiel\tAvant-match\tPre-match\nCampo\tSpi
 const I18N_MAP = new Map();
 I18N_RAW.split('\n').forEach(l => { const p = l.split('\t'); if(p.length === 4 && p[0]) I18N_MAP.set(p[0].replace(/\s+/g,' ').trim(), p.slice(1)); });
 const I18N_RX = [
+[/^([\d\/]+): se\ ci\ sono\ uomini\ da\ marcare\ marca;\ se\ no\ chiude\ il\ passaggio\ basso\.\ Se\ battono\ corto\ in\ due\ esce\ insieme\ all'ala\ di\ parte\.$/, ['$1: wenn es Gegner zu decken gibt, deckt er; sonst schliesst er den flachen Pass. Wenn kurz zu zweit gespielt wird, geht er mit dem Flügel dieser Seite raus.','$1: s\'il y a des joueurs à marquer, il marque ; sinon il ferme la passe basse. S\'ils jouent court à deux, il sort avec l\'ailier de ce côté.','$1: if there are players to mark, he marks; otherwise he closes the low pass. If they play it short with two, he goes out with the winger on that side.']],
 [/^Nota: (.+)$/, ['Notiz: $1','Note : $1','Note: $1']],
 [/^Avversario n° (\d+)(.*)$/, ['Gegner Nr. $1$2','Adversaire n° $1$2','Opponent no. $1$2']],
 [/^(.*)già: (.+)$/, ['$1bereits: $2','$1déjà : $2','$1already: $2']],
