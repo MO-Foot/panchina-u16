@@ -594,7 +594,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v71';
+const APP_VER = 'v72';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -3071,17 +3071,18 @@ function evText(m, e){
   return '';
 }
 const EV_ICON = {gol:'⚽', amm:'🟨', esp:'🟥', sub:'⇄'};
+const OUR_NAME = 'Switzerland U16 TYT';
 function renderCambi(m){
   const [a, b] = score(m), kitName = m.opp || 'Avversario';
   const side = team => { const our = team === 'our', list = our ? field(m).sort(byN) : oppOn(m).sort(byN);
     const chips = list.map(p => { const c = cardsOf(m, team, p.n).filter(e => e.t === 'amm').length;
       return `<span class="evchip ${our ? 'ourc' : 'oppc'}"><b>${p.n}</b>${(our ? fieldName(p) : p.name) ? `<small>${esc(our ? fieldName(p) : p.name)}</small>` : ''}${c ? '<i>' + '🟨'.repeat(c) + '</i>' : ''}</span>`; }).join('');
-    return `<div class="card evside ${our ? 'nois' : 'avv'}"><div class="cardhead"><h2>${our ? 'Noi' : esc(kitName)}</h2><span class="badge">${list.length} in campo</span></div>
+    return `<div class="card evside ${our ? 'nois' : 'avv'}"><div class="cardhead"><h2>${our ? OUR_NAME : esc(kitName)}</h2><span class="badge">${list.length} in campo</span></div>
       <div class="evbtns"><button class="btn pri" data-act="subsDo" data-side="${our ? 'our' : 'opp'}">⇄ Cambio</button><button class="btn" data-act="evGol" data-team="${team}">⚽ Gol</button><button class="btn" data-act="evAmm" data-team="${team}">🟨 Ammonizione</button><button class="btn" data-act="evEsp" data-team="${team}">🟥 Espulsione</button></div>
       <div class="evchips">${chips || '<p class="empty">Nessuno in campo.</p>'}</div></div>`; };
-  const list = evs(m).slice().reverse().map(e => `<div class="evrow ${e.team}"><span class="evmin">${esc(e.min || '')}</span><span class="evic">${EV_ICON[e.t] || ''}</span><span class="evtx"><b>${e.team === 'our' ? 'Noi' : esc(kitName)}</b> · ${esc(evText(m, e))}</span><button class="ibtn" data-act="evDel" data-id="${e.id}" aria-label="Togli">✕</button></div>`).join('');
+  const list = evs(m).slice().reverse().map(e => `<div class="evrow ${e.team}"><span class="evmin">${esc(e.min || '')}</span><span class="evic">${EV_ICON[e.t] || ''}</span><span class="evtx"><b>${e.team === 'our' ? OUR_NAME : esc(kitName)}</b> · ${esc(evText(m, e))}</span><button class="ibtn" data-act="evDel" data-id="${e.id}" aria-label="Togli">✕</button></div>`).join('');
   return `<div class="cambi">
-    <div class="scorebar"><span class="sc-t">Noi</span><span class="sc">${a}<i>–</i>${b}</span><span class="sc-t">${esc(kitName)}</span></div>
+    <div class="scorebar"><span class="sc-t">${OUR_NAME}</span><span class="sc">${a}<i>–</i>${b}</span><span class="sc-t">${esc(kitName)}</span></div>
     <div class="evgrid">${side('our')}${side('opp')}</div>
     <div class="card"><h2>Cronologia</h2>${list || '<p class="empty">Ancora nessun evento. Cambi, gol e cartellini compaiono qui con il minuto.</p>'}</div>
   </div>`;
@@ -3107,7 +3108,7 @@ setInterval(bigTick, 500);
 .rolerow.add{border-bottom:0;margin-top:6px}
 .cambi{display:grid;gap:12px}
 .scorebar{display:flex;align-items:center;justify-content:center;gap:18px;padding:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
-.scorebar .sc{font:700 3rem/1 var(--num)}.scorebar .sc i{font-style:normal;margin:0 10px;color:var(--muted)}
+.scorebar .sc{font:700 3rem/1 var(--num);white-space:nowrap;flex:none}@media (max-width:520px){.scorebar{gap:10px}.scorebar .sc{font-size:2.2rem}.scorebar .sc i{margin:0 5px}.scorebar .sc-t{font-size:1.05rem;min-width:0;flex:1}}.scorebar .sc i{font-style:normal;margin:0 10px;color:var(--muted)}
 .scorebar .sc-t{font:700 1.4rem/1 var(--num);min-width:100px}.scorebar .sc-t:first-child{text-align:right}
 .evgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:stretch}.evgrid>.evside{margin:3px;display:flex;flex-direction:column}
 .evside.nois{border:4px solid #d52b1e}.evside.avv{border:4px solid var(--opp-c1,#9aa0a6);box-shadow:0 0 0 3px var(--opp-c2,transparent);margin:3px}
