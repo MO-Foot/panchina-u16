@@ -632,7 +632,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v88';
+const APP_VER = 'v89';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -818,6 +818,7 @@ document.addEventListener('pointerdown', e => { UI.pinPitch = !!(e.target.closes
 function render(){
   if(typeof followActive === 'function') followActive();
   const m = M();
+  try{ if(myKey() && rolesKnown() && STAFF_ROLES[myRole()] && (myRole() === 'all' || (STAFF_ROLES[myRole()].views || []).includes('pre'))) spSync(m); }catch(e){}
   S.theme = 'rosso'; document.documentElement.dataset.theme = S.theme;   // solo maglia rossa
   document.documentElement.dataset.tok = S.tok || 'm';
   applyKitVars(m);
@@ -1842,6 +1843,29 @@ function setNums(sch, sl, arr){ if(sch.sides) sl.p[UI.side] = arr; else sl.p.all
 function pn(n){ const p = ourByN(n); const cls = !p ? 'nr' : (p.st === 'tit' ? '' : 'off');
   return `<span class="pn ${cls}"><b>${n}</b><small>${p ? (esc(surname(p)) || '&nbsp;') : 'non in rosa'}</small></span>`; }
 /* formazione: chi esce dai titolari lascia il posto; il primo che diventa titolare dopo eredita posizione nel master e nelle fasi, marcature e compiti nelle palle ferme */
+/* palle ferme allineate alla formazione: quando gli 11 titolari sono completi, chi è nelle palle ferme ma non è titolare
+   passa i compiti a un titolare che non ne ha (il più vicino come posizione nel campo master) */
+function spSync(m){
+  if(!m || !Array.isArray(m.sp)) return;
+  const tit = m.our.filter(p => p.st === 'tit'), sig = tit.map(p => p.id).sort().join(',');
+  if(m.spSig === sig) return; if(tit.length !== 11){ return; }
+  const used = new Set(); m.sp.forEach(x => x.slots.forEach(sl => Object.values(sl.p || {}).forEach(a => (a || []).forEach(n => used.add(n)))));
+  const titN = new Set(tit.map(p => p.n)), gk = ourGK(m);
+  const outs = [...used].filter(n => !titN.has(n)), ins = tit.filter(p => p !== gk && !used.has(p.n));
+  m.spSig = sig;
+  if(!outs.length || !ins.length) return;
+  const om = ourMaster(m), posOf = n => { const p = m.our.find(x => x.n === n); return p && ((m.ourPos || {})[p.id] || om[p.id]); };
+  const pairs = [], free = ins.slice();
+  outs.map(n => ({n, q:posOf(n)})).forEach(o => { if(!free.length) return;
+    let best = 0; if(o.q){ let bd = 1e9; free.forEach((p, i) => { const q = om[p.id]; const d = q ? Math.hypot(q.x - o.q.x, q.y - o.q.y) : 500; if(d < bd){ bd = d; best = i; } }); }
+    pairs.push([o.n, free.splice(best, 1)[0].n]); });
+  const snap = {sp:clone(m.sp), ck:m.their.map(q => [q.id, q.ck || null])};
+  pairs.forEach(([a, b]) => { const pa = m.our.find(x => x.n === a), pb = m.our.find(x => x.n === b);
+    m.sp.forEach(x => noteNum(x, a, b)); replaceNum(m, a, b); if(pa && pb && !m.their.some(q => q.ck === pb.id)) m.their.forEach(q => { if(q.ck === pa.id) q.ck = pb.id; }); });
+  setTimeout(() => toast('Palle ferme allineate ai titolari: ' + pairs.map(([a, b]) => a + '→' + b).join(', '), 'Annulla', () => {
+    const mm = M(); mm.sp = snap.sp; snap.ck.forEach(([id, ck]) => { const q = mm.their.find(x => x.id === id); if(q) q.ck = ck; }); save(); render(); }), 40);
+  save();
+}
 function lineupChange(m, p, was){
   if(!p || was === p.st) return;
   m.vacant = (m.vacant || []).filter(id => { const v = ourBy(id); return v && v.st !== 'tit'; });
@@ -4002,6 +4026,7 @@ const I18N_RAW = "Pre-partita\tVor dem Spiel\tAvant-match\tPre-match\nCampo\tSpi
 const I18N_MAP = new Map();
 I18N_RAW.split('\n').forEach(l => { const p = l.split('\t'); if(p.length === 4 && p[0]) I18N_MAP.set(p[0].replace(/\s+/g,' ').trim(), p.slice(1)); });
 const I18N_RX = [
+[/^Palle ferme allineate ai titolari: (.+)$/, ['Standards an die Startelf angepasst: $1','Coups de pied arrêtés alignés sur les titulaires : $1','Set pieces aligned to the starters: $1']],
 [/^(\d+) in panchina$/, ['Nr. $1 auf der Bank','Le $1 sur le banc','No. $1 to the bench']],
 [/^Copia salvata alle (\d+:\d+): (\d+) titolari, (\d+) compiti nelle palle ferme$/, ['Kopie gespeichert um $1: $2 Startspieler, $3 Aufgaben in den Standards','Copie enregistrée à $1 : $2 titulaires, $3 tâches sur coups de pied arrêtés','Copy saved at $1: $2 starters, $3 set-piece tasks']],
 [/^Esegui (\d+) cambio$/, ['$1 Wechsel ausführen','Faire $1 changement','Make $1 substitution']],
