@@ -642,7 +642,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v91';
+const APP_VER = 'v92';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -2570,16 +2570,22 @@ const ACT = {
     const rank = {tit:0, pan:1, usc:2};
     const list = m.our.filter(p => p.st !== 'out' && !cur.includes(p.n)).sort((a,b) => (rank[a.st] - rank[b.st]) || byN(a,b));
     if(!list.length) return toast('Nessun giocatore disponibile: inseriscili in Pre-partita');
-    pickModal(`${sl.label}: aggiungi`, list.map(p => ({label:String(p.n), sub:[p.name, p.st==='tit' ? '' : ST_LAB[p.st]].filter(Boolean).join(' · ')})), i => { setNums(sch, sl, [...cur, list[i].n]); save(); render(); }, '', true);
+    pickModal(`${sl.label}: aggiungi`, list.map(p => ({label:String(p.n), sub:[p.name, p.st==='tit' ? '' : ST_LAB[p.st], spBusyLab(sch, sl, p.n)].filter(Boolean).join(' · '), cls:spBusy(sch, sl, p.n).length ? 'used' : ''})), i => {
+      const b = list[i].n, busy = spBusy(sch, sl, b); busy.forEach(o => setNums(sch, o, nums(sch, o).filter(x => x !== b)));   // ha già un altro compito: lo lascia (niente doppioni)
+      setNums(sch, sl, [...cur, b]); save(); render(); if(busy.length) toast(`Il ${b} passa da «${tr(busy[0].label)}» a «${tr(sl.label)}»`); }, '', true);
   },
   spNum(el){
     const m = M(), sch = curSch(m), sl = sch.slots.find(x => x.id === el.dataset.sl), n = +el.dataset.n, cur = nums(sch, sl), o = ourByN(n);
     const rank = {tit:0, pan:1, usc:2};
     const list = m.our.filter(p => p.st !== 'out' && !cur.includes(p.n)).sort((a,b) => (rank[a.st] - rank[b.st]) || byN(a,b));
-    const opts = list.map(p => ({label:String(p.n), sub:[p.name, p.st==='tit' ? '' : ST_LAB[p.st]].filter(Boolean).join(' · ')}));
+    const opts = list.map(p => ({label:String(p.n), sub:[p.name, p.st==='tit' ? '' : ST_LAB[p.st], spBusyLab(sch, sl, p.n)].filter(Boolean).join(' · '), cls:spBusy(sch, sl, p.n).length ? 'used' : ''}));
     opts.push({label:'—', sub:'Togli il ' + n + ' da questo compito'});
     pickModal(`${sl.label}: al posto del ${n}${o && o.name ? ' (' + o.name + ')' : (o ? '' : ', non in rosa')}…`, opts, i => {
       if(i < list.length) noteNum(sch, n, list[i].n);
+      const busy = i < list.length ? spBusy(sch, sl, list[i].n) : [];
+      busy.forEach(o => setNums(sch, o, (() => { const a = nums(sch, o).map(x => x === list[i].n ? n : x); return a.filter((x, k) => a.indexOf(x) === k); })()));   // scambio: chi aveva quel compito prende il posto del n
+      busy.forEach(o => vicLink(m, sch, o.id, list[i].n, n));
+      if(busy.length) setTimeout(() => toast(`Scambiati il ${n} e il ${list[i].n}`), 30);
       setNums(sch, sl, i < list.length ? cur.map(x => x === n ? list[i].n : x) : cur.filter(x => x !== n));
       if(i < list.length) vicLink(m, sch, sl.id, n, list[i].n);
       save(); render();
@@ -3702,7 +3708,7 @@ function spImgModel(m, sch){
   const xs = S2('xtra'); if(xs) val(xs).forEach((n, i) => { const q = atN('xtra#' + n) || at('xtra:' + n, 44 + (i % 4) * 6, 60 + Math.floor(i / 4) * 9); items.push({kind:'our', key:'xtra#' + n, sl:xs, n, p:ourByN(n), x:q[0], y:q[1]}); });
   // avversari: prima quelli marcati (corner difensivo), poi gli altri
   const ogk = oppGK(m), mkS = S2('mk'), table = C.table && mkS;
-  if(table){ const cl = val(mkS), ord = [...cl.filter(n => !vicN.includes(n)), ...cl.filter(n => vicN.includes(n))]; if(ord.join() !== cl.join()){ mkS.p.all = ord; sch._dirty = true; } }
+  if(table){ const cl = val(mkS), ord = [...cl.filter(n => !vicN.includes(n)).sort((a, b) => a - b), ...cl.filter(n => vicN.includes(n))]; if(ord.join() !== cl.join()){ mkS.p.all = ord; sch._dirty = true; } }
   const mkOpp = table ? val(mkS).map(n => { const o = ourByN(n); return o && oppOn(m).find(q => q.ck === o.id); }).filter(Boolean) : [];
   const unmarked = oppOn(m).filter(q => !mkOpp.includes(q) && !(ogk && q.id === ogk.id)).sort(byN);
   const opps = table ? [unmarked.shift(), ...mkOpp, ...unmarked].filter(Boolean) : unmarked;   // il primo libero va sul battitore
@@ -3818,6 +3824,11 @@ function vicLink(m, sch, slId, a, b){
   const pa = ourByN(a), pb = ourByN(b);
   if(pa && pb && !m.their.some(q => q.ck === pb.id)) m.their.forEach(q => { if(q.ck === pa.id) q.ck = pb.id; });
 }
+/* compiti che possono avere lo stesso giocatore (corner difensivo: il vicino al battitore è anche in marcatura; chi esce sul corto può restare fuori area) */
+const SP_SHARE = {cdif:[['vic','mk'],['fuori','aladx'],['fuori','alasx']]};
+function spBusy(sch, sl, n){ if(!SPIMG[sch.type]) return []; const sh = SP_SHARE[sch.type] || [];
+  return sch.slots.filter(o => o !== sl && nums(sch, o).includes(n) && !sh.some(([a, b]) => (a === sl.id && b === o.id) || (b === sl.id && a === o.id))); }
+const spBusyLab = (sch, sl, n) => { const b = spBusy(sch, sl, n); return b.length ? 'già: ' + b.map(o => tr(o.label)).join(', ') : ''; };
 function noteSwap(sch, a, b){ if(!sch.note) return; noteNum(sch, a, -1); noteNum(sch, b, a); sch.note = sch.note.replace(/(^|[^\d])-1(?=\s*[:)])/g, '$1' + b); }
 function bindSpImg(){
   document.querySelectorAll('.spimg').forEach(box => {
@@ -4073,6 +4084,8 @@ const I18N_RAW = "Pre-partita\tVor dem Spiel\tAvant-match\tPre-match\nCampo\tSpi
 const I18N_MAP = new Map();
 I18N_RAW.split('\n').forEach(l => { const p = l.split('\t'); if(p.length === 4 && p[0]) I18N_MAP.set(p[0].replace(/\s+/g,' ').trim(), p.slice(1)); });
 const I18N_RX = [
+[/^Scambiati il (\d+) e il (\d+)$/, ['Nr. $1 und Nr. $2 getauscht','Le $1 et le $2 échangés','No. $1 and no. $2 swapped']],
+[/^Il (\d+) passa da «(.+)» a «(.+)»$/, ['Nr. $1 wechselt von «$2» zu «$3»','Le $1 passe de «$2» à «$3»','No. $1 moves from «$2» to «$3»']],
 [/^In campo \((\d+)\)$/, ['Auf dem Feld ($1)','Sur le terrain ($1)','On the pitch ($1)']],
 [/^Palle ferme allineate ai titolari: (.+)$/, ['Standards an die Startelf angepasst: $1','Coups de pied arrêtés alignés sur les titulaires : $1','Set pieces aligned to the starters: $1']],
 [/^(\d+) in panchina$/, ['Nr. $1 auf der Bank','Le $1 sur le banc','No. $1 to the bench']],
