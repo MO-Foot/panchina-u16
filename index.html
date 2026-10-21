@@ -594,7 +594,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v69';
+const APP_VER = 'v70';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -2463,7 +2463,9 @@ const ACT = {
     opts.push({label:'—', sub:'Togli il ' + n + ' da questo compito'});
     pickModal(`${sl.label}: al posto del ${n}${o && o.name ? ' (' + o.name + ')' : (o ? '' : ', non in rosa')}…`, opts, i => {
       if(i < list.length) noteNum(sch, n, list[i].n);
-      setNums(sch, sl, i < list.length ? cur.map(x => x === n ? list[i].n : x) : cur.filter(x => x !== n)); save(); render();
+      setNums(sch, sl, i < list.length ? cur.map(x => x === n ? list[i].n : x) : cur.filter(x => x !== n));
+      if(i < list.length) vicLink(m, sch, sl.id, n, list[i].n);
+      save(); render();
     }, '', true);
   },
   spRm(el){ const sch = curSch(M()), sl = sch.slots.find(x => x.id === el.dataset.sl); setNums(sch, sl, nums(sch, sl).filter(n => n !== +el.dataset.n)); save(); render(); },
@@ -3394,7 +3396,7 @@ function spDropOur(m, sch, side, key, v){
     if(o.sl === me.sl || arr(o.sl).includes(me.n) || arr(me.sl).includes(o.n)){ P[key] = pO; P[o.key] = pMe; return; }
     arr(me.sl).splice(arr(me.sl).indexOf(me.n), 1, o.n); arr(o.sl).splice(arr(o.sl).indexOf(o.n), 1, me.n);
     delete P[me.key]; delete P[o.key]; P[me.sl.id + '#' + o.n] = pMe; P[o.sl.id + '#' + me.n] = pO;
-    noteSwap(sch, me.n, o.n);
+    noteSwap(sch, me.n, o.n); vicLink(m, sch, me.sl.id, me.n, o.n); vicLink(m, sch, o.sl.id, o.n, me.n);
     toast(`Il ${me.n} e il ${o.n} si scambiano il compito`);
     return;
   }
@@ -3405,6 +3407,16 @@ function spDropOur(m, sch, side, key, v){
     [me.sl, o.sl].forEach(sl => { const xs = n => (P[sl.id + '#' + n] || [0])[0] * (md.mir ? -1 : 1); sl.p[pk] = arr(sl).slice().sort((a, b) => xs(a) - xs(b)); });   // ordine da sinistra a destra come in campo
     toast(`Il ${me.n} passa in «${tr(o.sl.label)}»`);
   }
+}
+/* corner difensivo: l'uomo vicino al battitore è anche l'ultimo della marcatura a uomo: se cambia in un posto, cambia anche nell'altro */
+function vicLink(m, sch, slId, a, b){
+  if(!sch || sch.type !== 'cdif' || (slId !== 'vic' && slId !== 'mk') || a === b) return;
+  const other = sch.slots.find(x => x.id === (slId === 'vic' ? 'mk' : 'vic')); if(!other) return;
+  const k = sch.sides ? UI.side : 'all', arr = other.p[k] || [];
+  if(!arr.includes(a) || arr.includes(b)) return;
+  other.p[k] = arr.map(x => x === a ? b : x);
+  const pa = ourByN(a), pb = ourByN(b);
+  if(pa && pb && !m.their.some(q => q.ck === pb.id)) m.their.forEach(q => { if(q.ck === pa.id) q.ck = pb.id; });
 }
 function noteSwap(sch, a, b){ if(!sch.note) return; noteNum(sch, a, -1); noteNum(sch, b, a); sch.note = sch.note.replace(/(^|[^\d])-1(?=\s*[:)])/g, '$1' + b); }
 function bindSpImg(){
