@@ -596,7 +596,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v78';
+const APP_VER = 'v79';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -4018,7 +4018,7 @@ if(M().clock.run && !M().clock.t0) M().clock.run = false;
 render();
 setTimeout(() => { if(fbOn()) fbConnect(); else syncNow(false); }, 800);
 if(!storageOK) toast('Salvataggio non disponibile: esporta la partita prima di chiudere');
-if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){ window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).then(r => { r.update(); document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') r.update(); }); }).catch(() => {}); }); }
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){ const hadSW = !!navigator.serviceWorker.controller; let reloaded = false; navigator.serviceWorker.addEventListener('controllerchange', () => { if(hadSW && !reloaded){ reloaded = true; location.reload(); } }); window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).then(r => { r.update(); document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') r.update(); }); }).catch(() => {}); }); }
 </script>
 </body>
 </html>
