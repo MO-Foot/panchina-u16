@@ -596,7 +596,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v76';
+const APP_VER = 'v77';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -1673,8 +1673,8 @@ function subsModal(side, mode){
     <select data-out="${p.id}" aria-label="Chi entra al posto del ${p.n}"><option value="">${mode === 'plan' ? 'nessun cambio' : 'resta in campo'}</option>${bench.map(b => `<option value="${b.id}" ${plan[p.id] === b.id ? 'selected' : ''}>${b.n}${b.name ? ' ' + (our ? esc(fieldName(b)) : esc(b.name)) : ''}</option>`).join('')}</select></div>`).join('');
   openModal(`<h2>${mode === 'plan' ? 'Prepara i cambi' : 'Cambi'} ${our ? 'nostri' : 'avversari'}</h2>
     <p class="hint" style="margin-top:0">${mode === 'plan' ? 'Scegli chi entra al posto di ogni titolare. In partita li ritrovi già proposti e puoi cambiarli.' : (our ? 'Sono proposti i cambi preparati: cambia il sostituto se serve (es. infortunio) o lascia «resta in campo».' : 'Per ogni avversario in campo scegli chi entra dalla distinta: prende la sua posizione e il nostro marcatore.')}</p>
+    ${mode === 'plan' ? '' : `<div class="subsmin"><label for="subsMin">Minuto del cambio</label><input id="subsMin" inputmode="numeric" autocomplete="off" value="${started(m) ? esc(minLabel(m)) : ''}" placeholder="es. 63 oppure 40+2"></div><p class="hint" style="margin:2px 0 8px">Già proposto dal cronometro: correggilo se serve. Anche senza cronometro, con il minuto il cambio finisce nella cronologia.</p>`}
     <div class="subs">${rows}</div>
-    ${mode === 'plan' ? '' : `<label class="fld subsmin"><span>Minuto del cambio</span><input id="subsMin" inputmode="numeric" autocomplete="off" value="${started(m) ? esc(minLabel(m)) : ''}" placeholder="es. 63 oppure 40+2"></label><p class="hint" style="margin-top:2px">Già proposto dal cronometro: correggilo se serve. Anche senza cronometro, con il minuto il cambio finisce nella cronologia.</p>`}
     <div class="btnrow"><button class="btn" data-act="subsClear">Svuota tutto</button><span style="flex:1"></span><button class="btn" data-act="mClose">Annulla</button><button class="btn pri" data-act="subsGo" id="subsGo">${subsLabel(mode, outs.filter(p => plan[p.id]).length)}</button></div>`, {subs:{side, mode}});
 }
 const subsLabel = (mode, n) => mode === 'plan' ? `Salva (${n} ${n === 1 ? 'cambio' : 'cambi'})` : (n ? `Esegui ${n} ${n === 1 ? 'cambio' : 'cambi'}` : 'Nessun cambio');
@@ -3189,6 +3189,7 @@ setInterval(bigTick, 500);
 .scorebar .sc{font:700 3rem/1 var(--num);white-space:nowrap;flex:none}@media (max-width:520px){.scorebar{gap:10px}.scorebar .sc{font-size:2.2rem}.scorebar .sc i{margin:0 5px}.scorebar .sc-t{font-size:1.05rem;min-width:0;flex:1}}.scorebar .sc i{font-style:normal;margin:0 10px;color:var(--muted)}
 .scorebar .sc-t{font:700 1.4rem/1 var(--num);min-width:100px}.scorebar .sc-t:first-child{text-align:right}
 body.nologin .top .clock,body.nologin #saveSt,body.nologin #themeBtn,body.nologin #hdrName{visibility:hidden}
+.subsmin{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;background:var(--surface2,var(--surface));border:2px solid var(--our)}.subsmin label{font:700 1.15rem var(--num)}.subsmin input::placeholder{font:600 .95rem system-ui,sans-serif}.subsmin input{width:200px;max-width:55%;min-height:48px;font:700 1.4rem var(--num);text-align:center;border:1.5px solid var(--line);border-radius:10px;background:var(--surface)}
 .appfoot{text-align:center;color:var(--muted);font-size:.8rem;padding:18px 12px calc(18px + env(safe-area-inset-bottom,0px));opacity:.8}
 .bview{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:12px;align-items:start}.bview .bmain{min-width:0}
 @media (max-width:1100px){.bview{grid-template-columns:1fr}}
