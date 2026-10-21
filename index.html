@@ -554,7 +554,7 @@ svg.trace circle{fill:none;stroke:#fff;stroke-width:.35;stroke-dasharray:1 .8;op
   <span class="savest" id="saveSt">salvato</span>
   <button class="hbtn" data-act="roleMe" id="roleBtn" style="display:none"></button>
   <button class="hbtn" data-act="lang" id="langBtn" aria-label="Lingua">IT</button>
-  <button class="hbtn" data-act="theme" id="themeBtn" aria-label="Cambia maglia"></button>
+  <button class="hbtn" data-act="theme" id="themeBtn" aria-label="Cambia maglia" hidden></button>
 </header>
 <nav class="tabs" id="tabs">
   <button data-act="view" data-v="pre">Pre-partita</button>
@@ -631,7 +631,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v83';
+const APP_VER = 'v84';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -816,7 +816,7 @@ function confirmModal(title, text, okLabel, cb){
 document.addEventListener('pointerdown', e => { UI.pinPitch = !!(e.target.closest && e.target.closest('.pre .master')); }, true);
 function render(){
   const m = M();
-  document.documentElement.dataset.theme = S.theme;
+  S.theme = 'rosso'; document.documentElement.dataset.theme = S.theme;   // solo maglia rossa
   document.documentElement.dataset.tok = S.tok || 'm';
   applyKitVars(m);
   const tb = $('#themeBtn'), other = S.theme === 'rosso' ? 'blu' : 'rosso';
@@ -847,7 +847,7 @@ function render(){
 function kitRowHtml(m){
   const k = m.kit;
   return `${k ? kitDot(k, 36) : '<span class="kdot" style="width:36px;height:36px;background:var(--opp);color:var(--opp-ink)">9</span>'}<span><b>${k ? esc(k.name || 'Personalizzata') : 'Maglia avversaria'}</b>${k && k.auto ? ' <span class="hint" style="margin:0">(scelta dal nome)</span>' : ''}</span><button class="btn" data-act="kitOpen">${k ? 'Cambia' : 'Scegli colore'}</button>
-  ${kitClash(k) ? `<span class="warnline" style="margin:0;flex-basis:100%">⚠ Colore simile alla nostra maglia. <button class="btn" data-act="theme" style="min-height:38px">Passa alla maglia ${S.theme === 'blu' ? 'Rossa' : 'Blu'}</button></span>` : ''}`;
+  ${kitClash(k) ? `<span class="warnline" style="margin:0;flex-basis:100%">⚠ Colore simile alla nostra maglia.</span>` : ''}`;
 }
 function renderPre(m){
   const our = [...m.our].sort(byN), tit = field(m).length, on = oppOn(m).length;
@@ -2246,7 +2246,7 @@ function editPlayerModal(side, id){
 
 const ACT = {
   view(el){ S.view = el.dataset.v; save(false, {pref:true}); render(); window.scrollTo(0,0); },
-  theme(){ S.theme = S.theme === 'rosso' ? 'blu' : 'rosso'; save(false, {pref:true}); render(); },
+  theme(){ S.theme = 'rosso'; render(); },
   clock(){ const c = M().clock; if(c.run){ c.el += (Date.now()-c.t0)/1000; c.run = false; c.t0 = null; } else { c.run = true; c.t0 = Date.now(); keepAwake(); } save(); tick(); },
   adj(el){ const c = M().clock, d = +el.dataset.d; if(c.run){ c.el += (Date.now()-c.t0)/1000; c.t0 = Date.now(); } c.el = Math.max(0, c.el + d); save(); tick(); },
   clockReset(el){ const all = el && el.dataset.all === '1';
