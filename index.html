@@ -632,7 +632,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v89';
+const APP_VER = 'v90';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -3299,21 +3299,30 @@ function tabData(m){
     return {start, bench, nm, mins};
   };
   const [a, b] = score(m);
-  return {L, a, b, our:side('our'), opp:side('opp'), E, kit:String(m.opp || 'Avversario').trim()};
+  return {L, a, b, our:side('our'), opp:side('opp'), E, kit:String(m.opp || 'Opponent').trim()};
 }
 const tabName = (D, team) => team === 'our' ? OUR_NAME : D.kit;
+/* il tabellino è sempre in inglese (da spedire) */
+function evTextEn(m, e){
+  const who = n => n == null ? '' : evPlayer(m, e.team, n);
+  if(e.t === 'gol') return (e.og ? 'Own goal' : 'Goal ' + who(e.n)) + (e.a != null ? ' (assist ' + who(e.a) + ')' : '');
+  if(e.t === 'amm') return 'Yellow card ' + who(e.n);
+  if(e.t === 'esp') return 'Red card ' + who(e.n);
+  if(e.t === 'sub') return 'Off ' + who(e.out) + ', on ' + who(e.inn);
+  return '';
+}
 function tabText(m){
   const D = tabData(m), ln = [];
   ln.push(`${OUR_NAME} ${D.a}–${D.b} ${D.kit}`);
   const info = [fmtDate(m.date), m.comp].filter(Boolean).join(' · '); if(info) ln.push(info);
   ln.push('');
   [['our', D.our], ['opp', D.opp]].forEach(([t, S2]) => { ln.push(tabName(D, t) + ':');
-    ln.push('  Formazione: ' + (S2.start.map(p => p.n + (S2.nm(p) ? ' ' + S2.nm(p) : '')).join(', ') || '—'));
-    if(S2.bench.length) ln.push('  Panchina: ' + S2.bench.map(p => p.n + (S2.nm(p) ? ' ' + S2.nm(p) : '')).join(', ')); });
-  ln.push(''); ln.push('Cronologia:');
+    ln.push('  Starting XI: ' + (S2.start.map(p => p.n + (S2.nm(p) ? ' ' + S2.nm(p) : '')).join(', ') || '—'));
+    if(S2.bench.length) ln.push('  Substitutes: ' + S2.bench.map(p => p.n + (S2.nm(p) ? ' ' + S2.nm(p) : '')).join(', ')); });
+  ln.push(''); ln.push('Timeline:');
   if(!D.E.length) ln.push('  —');
-  D.E.forEach(e => ln.push(`  ${e.min || ''} ${EV_ICON[e.t] || ''} ${tabName(D, e.team)} · ${evText(m, e)}`));
-  const mk = Object.keys(D.our.mins); if(mk.length){ ln.push(''); ln.push('Minuti giocati (' + OUR_NAME + '):');
+  D.E.forEach(e => ln.push(`  ${e.min || ''} ${EV_ICON[e.t] || ''} ${tabName(D, e.team)} · ${evTextEn(m, e)}`));
+  const mk = Object.keys(D.our.mins); if(mk.length){ ln.push(''); ln.push('Minutes played (' + OUR_NAME + '):');
     mk.map(Number).sort((x, y) => x - y).forEach(n => { const p = m.our.find(x => x.n === n); ln.push(`  ${n} ${p ? fieldName(p) : ''}: ${D.our.mins[n]}'`); }); }
   return ln.join('\n');
 }
@@ -3325,22 +3334,22 @@ function tabHtml(m){
   const cards = (team, n) => D.E.filter(e => e.t === 'amm' && e.team === team && e.n === n).map(() => '<i class="tb-yc"></i>').join('');
   const goals = (team, n) => D.E.filter(e => e.t === 'gol' && e.team === team && e.n === n).map(() => '<i class="tb-gl">⚽</i>').join('');
   const row = (t, S2, p) => `<li><b>${p.n}</b><span class="tb-nm">${esc(S2.nm(p)) || '&nbsp;'}</span><span class="tb-mk">${goals(t, p.n)}${cards(t, p.n)}${subOf(t, p.n)}</span></li>`;
-  const col = (t, S2) => `<div class="tb-col tb-${t}"><h3>${esc(tabName(D, t))}</h3><ul class="tb-xi">${S2.start.map(p => row(t, S2, p)).join('') || '<li class="tb-none">Formazione non inserita</li>'}</ul>
-    ${S2.bench.length ? `<h4>Panchina</h4><ul class="tb-bench">${S2.bench.map(p => row(t, S2, p)).join('')}</ul>` : ''}</div>`;
+  const col = (t, S2) => `<div class="tb-col tb-${t}"><h3>${esc(tabName(D, t))}</h3><ul class="tb-xi">${S2.start.map(p => row(t, S2, p)).join('') || '<li class="tb-none">Line-up not entered</li>'}</ul>
+    ${S2.bench.length ? `<h4>Substitutes</h4><ul class="tb-bench">${S2.bench.map(p => row(t, S2, p)).join('')}</ul>` : ''}</div>`;
   const mk = Object.keys(D.our.mins).map(Number).sort((x, y) => x - y), full = 2 * D.L;
   const logo = S.logo ? `<img class="tb-logo" src="${S.logo}" alt="">` : '';
-  return `<div class="tb" style="--opp:${esc(oc)}">
+  return `<div class="tb" lang="en" data-noi18n style="--opp:${esc(oc)}">
     <header class="tb-head">${logo}<div class="tb-score">
       <div class="tb-team">${esc(OUR_NAME)}</div><div class="tb-res"><span>${D.a}</span><span class="tb-dash">–</span><span>${D.b}</span></div><div class="tb-team tb-them">${esc(D.kit)}</div>
       ${info ? `<p class="tb-info">${esc(info)}</p>` : ''}</div></header>
     <section class="tb-lineups">${col('our', D.our)}${col('opp', D.opp)}</section>
-    <section><h2>Cronologia</h2>${D.E.length ? `<ol class="tb-tl">${D.E.map(e => `<li class="tb-${e.team}"><span class="tb-min">${esc(e.min || '')}</span><span class="tb-ic">${EV_ICON[e.t] || ''}</span><span class="tb-tx"><b>${esc(tabName(D, e.team))}</b> ${esc(evText(m, e))}</span></li>`).join('')}</ol>` : '<p class="tb-none">Nessun evento registrato.</p>'}</section>
-    ${mk.length ? `<section><h2>Minuti giocati</h2><div class="tb-mins">${mk.map(n => { const p = m.our.find(x => x.n === n), v = D.our.mins[n]; return `<div class="tb-mrow"><b>${n}</b><span class="tb-nm">${esc(p ? fieldName(p) : '')}</span><span class="tb-bar"><i style="width:${Math.min(100, v / full * 100).toFixed(1)}%"></i></span><span class="tb-mv">${v}'</span></div>`; }).join('')}</div><p class="tb-note">Calcolati da cambi ed espulsioni su ${full}', senza recupero.</p></section>` : ''}
+    <section><h2>Timeline</h2>${D.E.length ? `<ol class="tb-tl">${D.E.map(e => `<li class="tb-${e.team}"><span class="tb-min">${esc(e.min || '')}</span><span class="tb-ic">${EV_ICON[e.t] || ''}</span><span class="tb-tx"><b>${esc(tabName(D, e.team))}</b> ${esc(evTextEn(m, e))}</span></li>`).join('')}</ol>` : '<p class="tb-none">No events recorded.</p>'}</section>
+    ${mk.length ? `<section><h2>Minutes played</h2><div class="tb-mins">${mk.map(n => { const p = m.our.find(x => x.n === n), v = D.our.mins[n]; return `<div class="tb-mrow"><b>${n}</b><span class="tb-nm">${esc(p ? fieldName(p) : '')}</span><span class="tb-bar"><i style="width:${Math.min(100, v / full * 100).toFixed(1)}%"></i></span><span class="tb-mv">${v}'</span></div>`; }).join('')}</div><p class="tb-note">Based on substitutions and red cards over ${full}', stoppage time excluded.</p></section>` : ''}
     <footer class="tb-foot">APP Panchina, created by Mo</footer></div>`;
 }
 ACT.tabPdf = () => { $('#report').innerHTML = tabHtml(M()); window.print(); };
 ACT.tabTxt = async () => { const t = tabText(M());
-  try{ if(navigator.share && /iPad|iPhone|Android/i.test(navigator.userAgent)){ await navigator.share({title:'Tabellino', text:t}); return; } }catch(e){ if(e && e.name === 'AbortError') return; }
+  try{ if(navigator.share && /iPad|iPhone|Android/i.test(navigator.userAgent)){ await navigator.share({title:'Match report', text:t}); return; } }catch(e){ if(e && e.name === 'AbortError') return; }
   try{ await navigator.clipboard.writeText(t); toast('Tabellino copiato: incollalo in WhatsApp, mail o Teams'); }
   catch(e){ openModal(`<h2>Tabellino</h2><textarea rows="16" style="width:100%" readonly>${esc(t)}</textarea><div class="btnrow"><button class="btn" data-act="mClose">Chiudi</button></div>`); } };
 ACT.logoDel = () => { S.logo = null; S.metaMod = Date.now(); save(true); render(); };
