@@ -642,7 +642,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v94';
+const APP_VER = 'v95';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -4096,7 +4096,7 @@ function pvSection(m, sch){
       return `<div class="mkr">${pvP(n)}<span class="arr">→</span>${opp ? `<span class="opp"><b>${opp.n}</b>${info ? `<span>${esc(info)}</span>` : ''}</span>` : '<span class="none">da definire</span>'}</div>`; }).join('');
     body += `<h3>${esc(mk.label)}</h3><div class="mk">${rows || '<span class="none">—</span>'}</div>`;
   }
-  noteFix(sch); return `<section id="pv-${esc(sch.id)}" data-pv="${esc(sch.id)}"><h2>${esc(sch.name)}</h2>${sch.note ? `<p class="pvnote">⚠ ${esc(sch.note)}</p>` : ''}${pvImg(m, sch)}${body}</section>`;
+  noteFix(sch); return `<section id="pv-${esc(sch.id)}" data-pv="${esc(sch.id)}"><h2>${esc(sch.name)}</h2>${sch.note ? `<p class="pvnote">⚠ <span>${esc(sch.note)}</span></p>` : ''}${pvImg(m, sch)}${body}</section>`;
 }
 /* immagine della palla ferma (solo da guardare) per la vista giocatori e il link */
 function pvImg(m, sch){
