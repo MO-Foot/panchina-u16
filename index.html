@@ -642,7 +642,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v97';
+const APP_VER = 'v98';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -1702,6 +1702,7 @@ function parseMin(str, m){
 }
 /* ---- Cambi in blocco ---- */
 function swapOur(m, out, inn){
+  { const om = ourMaster(m); m.ourPos = Object.assign({}, om, m.ourPos || {}); if(om[out.id]) m.ourPos[inn.id] = om[out.id]; delete m.ourPos[out.id]; }   // chi entra prende il posto di chi esce nel master; gli altri restano dove sono
   out.st = 'usc'; inn.st = 'tit'; if(out.gk) inn.gk = true; phCopy(m, out.id, inn.id);
   const took = []; m.their.forEach(q => { if(q.mk === out.id){ q.mk = inn.id; took.push(q.n); } if(q.ck === out.id) q.ck = inn.id; });
   replaceNum(m, out.n, inn.n);
@@ -1881,7 +1882,8 @@ function spSync(m){
 function lineupChange(m, p, was){
   if(!p || was === p.st) return;
   m.vacant = (m.vacant || []).filter(id => { const v = ourBy(id); return v && v.st !== 'tit'; });
-  if(was === 'tit' && p.st !== 'tit'){ if(!m.vacant.includes(p.id)) m.vacant.push(p.id); return; }
+  if(was === 'tit' && p.st !== 'tit'){ const now = p.st; p.st = 'tit'; const om = ourMaster(m); p.st = now; m.ourPos = Object.assign({}, om, m.ourPos || {});   // fissa le posizioni: il posto lasciato resta per chi entra
+    if(!m.vacant.includes(p.id)) m.vacant.push(p.id); return; }
   if(p.st !== 'tit' || !m.vacant.length) return;
   const v = ourBy(m.vacant.shift()); if(!v) return;
   const snap = {sp:clone(m.sp), plans:clone(m.plans || []), ourPos:clone(m.ourPos || {}), ph:clone(m.ph || {}), opp:m.their.map(q => [q.id, q.mk || null, q.ck || null]), gk:[v.gk, p.gk], vacant:[v.id, ...m.vacant]};
@@ -3161,7 +3163,9 @@ function fbIncoming(first){
 function fbBusy(){ const a = document.activeElement; return !$('#modal').classList.contains('hidden') || !!document.querySelector('.dragging, .btok.fly') || (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)); }
 /* Lavagna in diretta: se è cambiata solo la lavagna, sposto le pedine senza ridisegnare la pagina (così si vedono muovere) */
 function boardPatch(){
-  if(S.view !== 'board' || document.querySelector('#board .dragging')) return false; const el = $('#board'), m = M(), b = m && m.board; if(!el || !b) return false;
+  if(S.view !== 'board' || document.querySelector('#board .dragging')) return false; const el = $('#board'), m = M(); if(!el || !m) return false;
+  if(!m.board || !m.board.man) boardFromCampo(m, true);   // la lavagna segue il master: con un cambio arrivano i nuovi numeri
+  const b = m.board; if(!b) return false;
   const toks = el.querySelectorAll('[data-b]'); if(toks.length !== b.opp.length + b.our.length + 1) return false;
   if(el.querySelectorAll('polyline[data-li]').length !== b.lines.length) return false;
   for(const s2 of document.querySelectorAll('[data-bf]')) if(s2.value !== b[s2.dataset.bf]) return false;
