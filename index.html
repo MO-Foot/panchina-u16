@@ -642,7 +642,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v93';
+const APP_VER = 'v94';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -3576,6 +3576,11 @@ body.guest [data-act=pvClose],body.guest [data-act=pvShare]{display:none!importa
 .gwm{position:fixed;inset:0;pointer-events:none;z-index:950;opacity:.09;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='170'%3E%3Ctext x='10' y='100' transform='rotate(-24 150 85)' font-family='Arial' font-weight='700' font-size='20' fill='%23000'%3ERiservato · Switzerland U16 TYT%3C/text%3E%3C/svg%3E")}
 body.guest.gblur #guestBox,body.guest.gblur #pvOv{filter:blur(18px)}
 .pvimg{margin:8px 0 12px}.pvimg h3{margin:6px 0}.spimg.ro *{cursor:default}
+#pvOv,.sheet,.subs,.lvlist{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+body.guest #pvOv{position:static;inset:auto;overflow:visible;min-height:100vh;z-index:auto}
+html.pvon,html.pvon body{overflow:hidden;height:100%}
+.pitch{touch-action:pan-y pinch-zoom}.pitch.drawing,.pitch .tok,.pitch .ball,.pitch .ghost{touch-action:none}   /* sul prato si può scorrere la pagina; pedine e disegno restano trascinabili */
+.spimg .sh,.spimg .opptk{touch-action:none}
 .appfoot{text-align:center;color:var(--muted);font-size:.8rem;padding:18px 12px calc(18px + env(safe-area-inset-bottom,0px));opacity:.8}
 .bview{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:12px;align-items:start}.bview .bmain{min-width:0}
 @media (max-width:1100px){.bview{grid-template-columns:1fr}}
@@ -3762,7 +3767,8 @@ const spImgOn = sch => !!SPIMG[sch.type] && !((S.imgList || {})[sch.type]);
 const spImgSide = sch => sch.sides ? UI.side : (SPIMG[sch.type].mirror && sch.imgSide === 'sx' ? 'sx' : 'dx');
 function spImgModel(m, sch){
   const C = SPIMG[sch.type], side = spImgSide(sch), mir = side === 'sx' && C.mirror, X = x => mir ? +(100 - x).toFixed(1) : x;
-  Object.keys(C.slots).forEach(id => { if(!sch.slots.some(s => s.id === id)){ sch.slots.push({id, label:SPIMG_LABELS[id] || id, p:sch.sides ? {dx:[], sx:[]} : {all:[]}}); sch._dirty = true; } });
+  const lbl = id => ((SP_PDF[sch.type] || {}).slots || {})[id] || SPIMG_LABELS[id] || id;
+  Object.keys(C.slots).forEach(id => { const ex = sch.slots.find(s => s.id === id); if(!ex){ sch.slots.push({id, label:lbl(id), p:sch.sides ? {dx:[], sx:[]} : {all:[]}}); sch._dirty = true; } else if(ex.label === id && lbl(id) !== id){ ex.label = lbl(id); sch._dirty = true; } });   // compiti senza nome (es. «port»): prende il nome giusto
   const S2 = id => sch.slots.find(x => x.id === id), val = sl => sl ? (sch.sides ? (sl.p[side] || []) : (sl.p.all || [])) : [];
   const ip = sch.ipos || {}, cur = ip[side] || {}, other = ip[side === 'sx' ? 'dx' : 'sx'] || {}, legacy = (!sch.ipos && sch.pos) || {};
   const at = (key, x, y) => cur[key] || (C.mirror && other[key] ? [+(100 - other[key][0]).toFixed(1), other[key][1]] : null) || (side === 'dx' && legacy[key]) || [X(x), y];
