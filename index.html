@@ -642,7 +642,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v105';
+const APP_VER = 'v106';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -830,7 +830,7 @@ document.addEventListener('pointerdown', e => { UI.pinPitch = !!(e.target.closes
 function render(){
   if(typeof followActive === 'function') followActive();
   const m = M();
-  try{ if(myKey() && rolesKnown() && STAFF_ROLES[myRole()] && (myRole() === 'all' || (STAFF_ROLES[myRole()].views || []).includes('pre'))) spSync(m); }catch(e){}
+  try{ if(myKey() && FBX.ready && rolesKnown() && STAFF_ROLES[myRole()] && (myRole() === 'all' || (STAFF_ROLES[myRole()].views || []).includes('pre'))) spSync(m); }catch(e){}
   S.theme = 'rosso'; document.documentElement.dataset.theme = S.theme;   // solo maglia rossa
   document.documentElement.dataset.tok = S.tok || 'm';
   applyKitVars(m);
@@ -2914,7 +2914,7 @@ function fbSetPath(path, data){
   if(data === null || data === undefined) delete n[last]; else n[last] = data;
 }
 function fbRemoteFlat(rm){ const f = {}; Object.entries(rm || {}).forEach(([seg, v]) => { if(typeof v === 'string') f[seg] = v; else if(v && typeof v === 'object') Object.entries(v).forEach(([k, x]) => { if(typeof x === 'string') f[seg + '/' + k] = x; }); }); return f; }
-const fbBlank = m => !m.opp && !(m.notes || []).length && !(m.their || []).length && !(m.plans || []).length;
+const fbBlank = m => !m.opp && !(m.notes || []).length && !(m.their || []).length && !(m.plans || []).length && !(m.our || []).some(p => p.st === 'tit');
 /* unisce quello che arriva dal server: vince il server, tranne dove questo tablet ha modifiche non ancora inviate */
 /* ============ Copie di sicurezza ============
    «💾 Salva» fotografa la partita aperta (rosa, formazione, avversari, palle ferme, lavagne, piani). Le copie stanno su questo dispositivo;
@@ -3025,13 +3025,13 @@ async function guestLoad(){
   clearTimeout(UI.gEnd); UI.gEnd = setTimeout(guestLoad, meta.to - Date.now() + 500);
 }
 function guestRender(){ if(!S.matches.guest) return; const gb = $('#guestBox'); if(gb) gb.innerHTML = ''; let ov = $('#pvOv'); if(!ov){ ov = document.createElement('div'); ov.id = 'pvOv'; document.body.appendChild(ov); } ov.className = 'pv'; ov.innerHTML = pvBody(M(), 'tablet'); i18nTree(ov); }
-function fbReconcile(){
+function fbReconcile(first){
   const R = FBX.remote || {}, base = FB.base || (FB.base = {}), rms = R.matches || {}, del = R.del || {};
   let changed = false;
   const g = R.g || {}, bg = base._g || (base._g = {});
   ['squad', 'spTpl', 'roles', 'logo', 'active'].forEach(k => { const Rv = typeof g[k] === 'string' ? g[k] : undefined, Bv = bg[k], Lv = JSON.stringify(S[k] ?? null);
     if(Rv === Bv) return;
-    if((Lv === Bv || Bv === undefined) && Rv !== undefined && Lv !== Rv){ S[k] = JSON.parse(Rv); changed = true; }
+    if((Lv === Bv || Bv === undefined || first) && Rv !== undefined && Lv !== Rv){ S[k] = JSON.parse(Rv); changed = true; }
     if(Rv === undefined) delete bg[k]; else bg[k] = Rv; });
   Object.keys(del).forEach(id => { if(S.matches[id]){ delete S.matches[id]; changed = true; } S.deleted = S.deleted || {}; S.deleted[id] = +del[id] || Date.now(); delete base[id]; });
   new Set([...Object.keys(rms), ...Object.keys(base).filter(k => k !== '_g')]).forEach(mid => {
@@ -3049,7 +3049,8 @@ function fbReconcile(){
     new Set([...Object.keys(rf), ...Object.keys(b)]).forEach(p => {
       const Rv = rf[p], Bv = b[p], Lv = lf[p];
       if(Rv === Bv) return;
-      if((Lv === Bv || (Bv === undefined && Rv !== undefined)) && Lv !== Rv){ snapAuto(m, 'prima di un aggiornamento dal database'); fbApply(m, p, Rv); changed = true; }
+      // al primo collegamento vince sempre il database: un dispositivo rimasto indietro non può sovrascrivere i dati nuovi con i suoi vecchi
+      if((Lv === Bv || (Bv === undefined && Rv !== undefined) || (first && Rv !== undefined)) && Lv !== Rv){ snapAuto(m, 'prima di un aggiornamento dal database'); fbApply(m, p, Rv); changed = true; }
       if(Rv === undefined) delete b[p]; else b[p] = Rv;
     });
     base[mid] = b;
@@ -3147,7 +3148,7 @@ async function fbConnect(){
   es.onerror = () => { if(FBX.es !== es) return; if(es.readyState === 2){ FBX.es = null; fbState('offline'); setTimeout(fbConnect, 5000); } else fbState('offline'); };
 }
 function fbIncoming(first){
-  const changed = fbReconcile();
+  const changed = fbReconcile(first);
   if(!FB.synced){ FB.synced = true; fbSaveNow(); }
   try{ liveTick(); }catch(e){}
   followActive();
