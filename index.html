@@ -657,7 +657,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v119';
+const APP_VER = 'Ver. B1';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -4724,7 +4724,7 @@ ACT.langPick = el => { closeModal(); setLang(el.dataset.l); };
 document.documentElement.lang = LANG;
 langBtnTx(); i18nTree(document.body);
 /* ============ Avvio ============ */
-{ const av = document.getElementById('appVer'); if(av) av.textContent = 'versione ' + APP_VER; }
+{ const av = document.getElementById('appVer'); if(av) av.textContent = APP_VER; }
 if(GUEST_ID){
   window.GUEST = true; S = {v:1, squad:[], matches:{}, cur:null, view:'pre', theme:'rosso'};
   document.body.classList.add('guest'); document.body.insertAdjacentHTML('afterbegin', '<div id="guestBox"><div class="gmsg"><h1>Palle ferme</h1><p>Caricamento…</p></div></div><div class="gwm" aria-hidden="true"></div>');
