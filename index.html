@@ -87,7 +87,7 @@ main{padding:12px;padding-bottom:40px}
 .fld{display:block;margin-bottom:10px}
 .fld span{display:block;font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:4px}
 .fld.inline{margin:0;min-width:150px}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.row2>*{min-width:0}.row2 input,.row2 select{width:100%;min-width:0;max-width:100%;box-sizing:border-box}
 .addrow{display:grid;grid-template-columns:90px 1fr auto;gap:8px}
 .num{text-align:center;font-weight:700;font-size:1.15rem}
 .seg{display:inline-flex;border:1.5px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)}
@@ -642,7 +642,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v104';
+const APP_VER = 'v105';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
