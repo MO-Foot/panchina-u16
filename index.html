@@ -156,6 +156,12 @@ main{padding:12px;padding-bottom:40px}
 @media (max-width:1199px){ .pre .master{grid-column:1/-1;grid-row:3} .pre .precol{grid-row:1 / span 2} .mastercol .pitch{width:min(100%, calc((100vh - 230px) * 105 / 68))} }
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .ourcols{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}.chips.col{flex-direction:column;flex-wrap:nowrap}.chips.col .pchip{width:100%}
+.pre .chips.col{gap:4px}
+.pre .pchip{min-height:34px;padding:2px 34px 2px 8px;border-radius:9px;gap:6px;border-width:1.5px}
+.pre .pchip b{font-size:1.15rem;min-width:24px}
+.pre .pchip .nm{font-size:.85rem;max-width:none;flex:0 1 auto;min-width:0}
+.pre .pchip em{font-size:.7rem}
+.pre .pchip .ed{width:28px;height:30px;font-size:.85rem}
 .colh{font:700 1.05rem var(--num);margin:6px 0 6px;color:var(--muted)}.colh small{font:inherit;color:var(--ink);margin-left:4px}
 @media (max-width:560px){.ourcols{grid-template-columns:1fr}}
 .pchip{position:relative;display:flex;align-items:center;gap:8px;min-height:52px;padding:6px 40px 6px 10px;border-radius:12px;border:2px solid var(--line);background:var(--surface2);text-align:left}
@@ -648,7 +654,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v114';
+const APP_VER = 'v115';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
