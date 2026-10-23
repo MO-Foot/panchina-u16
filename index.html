@@ -642,7 +642,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v102';
+const APP_VER = 'v103';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -3319,7 +3319,7 @@ function roleApply(){
 /* il cronometro lo usano team manager, preparatore, allenatore e assistente */
 ['clock', 'adj', 'half', 'clockReset'].forEach(k => { const f = ACT[k]; ACT[k] = el => { if(!canClock()) return toast('Il tempo lo gestiscono il team manager e il preparatore atletico'); return f(el); }; });
 ACT.roleMe = () => { const k = myKey();
-  openModal(`<h2>${esc(fbShowUser(FB.email))}</h2><p>Ruolo: <b>${esc(STAFF_ROLES[myRole()].lab)}</b></p><p class="hint">I ruoli li assegna Mo nell'Archivio.</p><div class="btnrow"><button class="btn danger" data-act="fbOut">Esci (scollega)</button><span style="flex:1"></span><button class="btn" data-act="mClose">Chiudi</button></div>`); };
+  openModal(`<h2>${esc(fbShowUser(FB.email))}</h2><p>Ruolo: <b>${esc(STAFF_ROLES[myRole()].lab)}</b></p><p class="hint">I ruoli li assegna Mo nell'Archivio.</p><p class="hint" data-noi18n style="font-family:monospace;font-size:.8rem;background:var(--surface2);padding:6px 8px;border-radius:8px">utente: ${esc(k || '-')} · email: ${esc(FB.email || '-')}<br>ruoli caricati: ${Object.keys(S.roles || {}).length} → ${esc(Object.entries(S.roles || {}).map(([a, b]) => a + '=' + b).join(', ') || 'nessuno')}<br>database: ${esc(FBX.state || '-')} · sincronizzato: ${FB.synced ? 'sì' : 'no'} · versione ${APP_VER}</p><div class="btnrow"><button class="btn danger" data-act="fbOut">Esci (scollega)</button><span style="flex:1"></span><button class="btn" data-act="mClose">Chiudi</button></div>`); };
 function rolesCardHtml(){
   if(!fbOn()) return '<p class="hint" style="margin-top:0">Accedi al lavoro in squadra per assegnare i ruoli.</p>';
   if(myRole() !== 'all') return '';
