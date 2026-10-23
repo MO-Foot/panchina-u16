@@ -654,7 +654,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v115';
+const APP_VER = 'v116';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -1163,13 +1163,15 @@ function pressFromAtt(m){
   const asg = hungarian(cost), pairs = [];
   R.forEach((r, i) => { const c = C[asg[i]]; if(c) pairs.push(rowsOur ? [r, c] : [c, r]); });
   opps.forEach(q => { q.mk = null; });
-  pairs.forEach(([o, q]) => { q.mk = o.id; const h = H[q.id]; phSet(m, 'high', 'our', o.id, clampV(h.x - 3.5, 53, 97), clampV(h.y + 3, 5, 95)); });
+  pairs.forEach(([o, q]) => { q.mk = o.id; const h = H[q.id]; phSet(m, 'high', 'our', o.id, ...pressSpot(h)); });
   return true;
 }
+/* posto del marcatore nel pressing alto: di fianco all'avversario, verso la nostra porta, con spazio tra le due pedine (la linea si vede) */
+const pressSpot = h => h.x - 7 >= 53 ? [h.x - 7, clampV(h.y + 1.5, 5, 95)] : [clampV(h.x - 3, 53, 97), clampV(h.y + (h.y > 50 ? -8 : 8), 5, 95)];
 /* nel pressing alto il marcatore va accanto all'avversario che marca (la linea resta corta) */
 function pressNear(m, q){
   if(!q || !q.mk) return; const H = phPositions(m, 'high').opp[q.id]; if(!H) return;
-  phSet(m, 'high', 'our', q.mk, clampV(H.x - 3.5, 53, 97), clampV(H.y + 3, 5, 95));
+  phSet(m, 'high', 'our', q.mk, ...pressSpot(H));
 }
 function pressSnap(m){ return {mk:Object.fromEntries(m.their.map(q => [q.id, q.mk || null])), high:clone((m.ph && m.ph.high) || {})}; }
 function pressUndo(m, sn){ m.their.forEach(q => { if(q.id in sn.mk) q.mk = sn.mk[q.id]; }); m.ph = m.ph || {}; m.ph.high = sn.high; save(); render(); }
