@@ -198,7 +198,9 @@ main{padding:12px;padding-bottom:40px}
 .btok.nm{box-shadow:0 0 0 2px var(--our),0 1px 3px rgba(0,0,0,.25)}
 .btok.ex{opacity:.35}
 .btok.our{background:var(--our);color:var(--our-ink)}
-.obench{margin-top:6px}
+.benches{display:flex;gap:10px;align-items:stretch;width:100%}
+.benches>.bench{flex:1 1 0;min-width:0;width:auto}
+@media (max-width:700px){ .benches{flex-direction:column;gap:0} }
 .evside.avv .btn.pri{background:var(--opp-tok,var(--opp));color:var(--opp-tok-ink,var(--opp-ink));border-color:var(--opp-c2,var(--opp-c1,transparent));text-shadow:0 0 2px rgba(0,0,0,.25)}
 .btok.fly{position:fixed;z-index:80;transform:translate(-50%,-50%);pointer-events:none;width:var(--t);height:var(--t);font-size:calc(var(--t)*.5)}
 .zn h3{margin:0 0 8px}
@@ -646,7 +648,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v113';
+const APP_VER = 'v114';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -1209,7 +1211,7 @@ function renderCampo(m){
     ${UI.sel ? `<aside class="card panel selfloat">${panelSel(m, oppBy(UI.sel))}</aside>` : ''}
   </div>
   <div class="pitchwrap">
-      ${benchHTML(m)}${ourBenchHTML(m)}
+      <div class="benches">${benchHTML(m)}${ourBenchHTML(m)}</div>
       <div class="pitchfoot"><span>${on.length ? 'Le pedine partono dal master (Pre-partita): trascinale per sistemarle in questa fase. Tocca un avversario per il marcatore, doppio tocco per il cambio.' : '<b>Inserisci la formazione nel campo master in Pre-partita, oppure trascina i numeri dalla panchina.</b>'}</span>
       <span>${unmarked.length ? `<b style="color:var(--warn)">Senza marcatore: ${unmarked.map(p => p.n).join(', ')}</b> <button class="btn pri" data-act="seqAssign" style="min-height:34px;margin-left:6px">Abbina in sequenza</button>` : (on.length ? '<b style="color:var(--ok)">Tutti marcati</b>' : '')}</span></div>
   </div>`;
