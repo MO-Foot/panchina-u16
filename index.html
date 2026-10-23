@@ -643,7 +643,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v107';
+const APP_VER = 'v108';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -3526,7 +3526,7 @@ function renderLive(m){
   const [a, b] = score(m), kit = String(m.opp || 'Avversario').trim(), mins = liveMins(m), nm = p => fieldName(p) || p.name || '';
   const onF = field(m).sort(byN), bench = m.our.filter(p => p.st === 'pan').sort(byN), off = m.our.filter(p => p.st === 'usc').sort(byN);
   const yc = n => evs(m).filter(e => e.t === 'amm' && e.team === 'our' && e.n === n).length;
-  const row = (p, cls) => `<div class="lvpl ${cls}"><b>${p.n}</b><span>${esc(nm(p))}${p.gk ? ' (P)' : ''}${yc(p.n) ? ' ' + '🟨'.repeat(yc(p.n)) : ''}${p.red ? ' 🟥' : ''}</span><em>${mins[p.n] != null ? mins[p.n] + "'" : ''}</em></div>`;
+  const row = (p, cls) => `<div class="lvpl ${cls}"><b>${p.n}</b><span>${esc(nm(p))}${p.gk ? ' (P)' : ''}${yc(p.n) ? ' ' + '🟨'.repeat(yc(p.n)) : ''}${evs(m).some(e => e.t === 'esp' && e.team === 'our' && e.n === p.n) ? ' 🟥' : ''}</span><em>${mins[p.n] != null ? mins[p.n] + "'" : ''}</em></div>`;
   const list = evs(m).slice().reverse().map(e => `<div class="evrow ${e.team}"><span class="evmin">${esc(e.min || '')}</span><span class="evic">${EV_ICON[e.t] || ''}</span><span class="evtx"><b>${e.team === 'our' ? OUR_NAME : esc(kit)}</b> · ${esc(evText(m, e))}</span></div>`).join('');
   return `<div class="cambi ph live">
     <div class="scorebar"><span class="sc-t">${OUR_NAME}</span><span class="sc">${a}<i>–</i>${b}</span><span class="sc-t">${esc(kit)}</span></div>
