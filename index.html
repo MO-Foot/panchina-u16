@@ -580,7 +580,7 @@ svg.trace circle{fill:none;stroke:#fff;stroke-width:.35;stroke-dasharray:1 .8;op
   <button data-act="view" data-v="arch">Archivio</button>
 </nav>
 <main id="main"></main>
-<footer class="appfoot">© 2026 APP Panchina · Created by Mo</footer>
+<footer class="appfoot">© 2026 APP Panchina · Created by Mo · <b id="appVer" data-noi18n></b></footer>
 <div class="lvbanner" id="lvBanner" hidden role="alert"><div class="bt"><small id="lvFrom"></small><span id="lvText"></span></div><button data-act="liveSeen">Visto</button></div>
 <div class="modal hidden" id="modal"><div class="sheet" id="sheet"></div></div>
 <div class="toast hidden" id="toast"><span id="toastTx"></span><button id="toastBtn" class="hidden"></button></div>
@@ -643,7 +643,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v108';
+const APP_VER = 'v109';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -4577,6 +4577,7 @@ ACT.langPick = el => { closeModal(); setLang(el.dataset.l); };
 document.documentElement.lang = LANG;
 langBtnTx(); i18nTree(document.body);
 /* ============ Avvio ============ */
+{ const av = document.getElementById('appVer'); if(av) av.textContent = 'versione ' + APP_VER; }
 if(GUEST_ID){
   window.GUEST = true; S = {v:1, squad:[], matches:{}, cur:null, view:'pre', theme:'rosso'};
   document.body.classList.add('guest'); document.body.insertAdjacentHTML('afterbegin', '<div id="guestBox"><div class="gmsg"><h1>Palle ferme</h1><p>Caricamento…</p></div></div><div class="gwm" aria-hidden="true"></div>');
