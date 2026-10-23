@@ -643,7 +643,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v109';
+const APP_VER = 'v110';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -3343,7 +3343,8 @@ document.addEventListener('change', e => { const u = e.target.dataset && e.targe
   if(u === myKey()) return; S.roles = Object.assign({}, S.roles, {[u]:e.target.value}); save(); render(); });
 
 /* ============ Eventi: gol, ammonizioni, espulsioni, cambi ============ */
-const evs = m => Array.isArray(m.ev) ? m.ev : (m.ev = []);
+const evSort = (a, b) => ((a.half || 1) - (b.half || 1)) || ((a.sec || 0) - (b.sec || 0)) || ((a.at || 0) - (b.at || 0));
+const evs = m => { const a = Array.isArray(m.ev) ? m.ev : (m.ev = []); for(let i = 1; i < a.length; i++) if(evSort(a[i - 1], a[i]) > 0){ a.sort(evSort); break; } return a; };   // sempre in ordine di minuto (anche dopo sincronizzazioni e ripristini)
 function addEv(o){ const m = M(); const e = Object.assign({id:uid(), half:m.clock.half, sec:Math.floor(elapsed(m)), min:minLabel(m), at:Date.now(), by:myKey() || ''}, EV_MIN || {}, o); evs(m).push(e); evs(m).sort((a, b) => (a.half - b.half) || (a.sec - b.sec) || (a.at - b.at)); save(); return e; }
 ACT.evMinEd = el => { const m = M(), e = evs(m).find(x => x.id === el.dataset.id); if(!e) return;
   openModal(`<h2>Minuto</h2><p class="hint" style="margin-top:0">${esc(evText(m, e))}</p><label class="fld"><span>Minuto</span><input id="evMinIn" inputmode="numeric" autofocus data-enter="evMinOk" value="${esc(String(e.min || '').replace("'", ''))}" placeholder="es. 63 oppure 40+2"></label>
