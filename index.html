@@ -642,7 +642,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v101';
+const APP_VER = 'v102';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -3299,7 +3299,10 @@ const STAFF_ROLES = {
 };
 const ALL_VIEWS = ['pre','campo','board','corner','note','int','cambi','arch'];
 const myKey = () => (typeof fbOn === 'function' && fbOn() && FB.email) ? fbShowUser(FB.email).trim().toLowerCase() : null;
-function myRole(){ const k = myKey(), r = k && S.roles && S.roles[k]; return STAFF_ROLES[r] ? r : 'all'; }
+function myRole(){ const k = myKey(); if(!k || !S.roles) return 'all';
+  const norm = x => String(x || '').trim().toLowerCase(), base = x => norm(x).split('@')[0];
+  let r = S.roles[k]; if(!STAFF_ROLES[r]){ const hit = Object.entries(S.roles).find(([rk]) => norm(rk) === k || base(rk) === base(k)); r = hit && hit[1]; }   // anche «matchanalyst» = «matchanalyst@…»
+  return STAFF_ROLES[r] ? r : 'all'; }
 /* senza accesso si vede solo l'Archivio (per entrare); dopo l'accesso le schede del proprio ruolo */
 const rolesKnown = () => !!(FBX.ready || FB.synced);   // i ruoli arrivano dal database: finché non sono arrivati almeno una volta, solo Archivio
 const myViews = () => (!myKey() || !rolesKnown()) ? ['arch'] : (STAFF_ROLES[myRole()].views || ALL_VIEWS);
