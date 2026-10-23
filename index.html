@@ -642,7 +642,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v99';
+const APP_VER = 'v100';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -4033,18 +4033,17 @@ async function fillMatchsheet(file){
   const isUs = t => /switzerland|schweiz|suisse|svizzera|swiss/i.test(t);
   let away = isUs(txt('R4')) ? true : isUs(txt('D4')) ? false : null;
   if(away === null) away = await new Promise(ok => pickModal('Noi siamo…', [{label:'Casa', sub:'colonne a sinistra'}, {label:'Ospite', sub:'colonne a destra'}], i => ok(i === 1)));
-  const C = away ? {sh:'P', nm:'Q', P:'Y', S:'Z', N:'AA', in:'R', out:'V', min:'Y', gp:'O', gm:'Q', gs:'S', cp:'V', cm:'Y', goals:'AD5'} : {sh:'B', nm:'C', P:'K', S:'L', N:'M', in:'A', out:'D', min:'G', gp:'A', gm:'C', gs:'E', cp:'H', cm:'K', goals:'D5'};
+  const C = away ? {gk:'O', sh:'P', nm:'Q', P:'Y', S:'Z', N:'AA', in:'R', out:'V', min:'Y', gp:'O', gm:'Q', gs:'S', cp:'V', cm:'Y', goals:'AD5'} : {gk:'A', sh:'B', nm:'C', P:'K', S:'L', N:'M', in:'A', out:'D', min:'G', gp:'A', gm:'C', gs:'E', cp:'H', cm:'K', goals:'D5'};
   // giocatori: chi è entrato dalla panchina conta come titolare? No: nel foglio P = titolari iniziali, S = panchina
   const E = evs(m), subIn = new Set(E.filter(e => e.t === 'sub' && e.team === 'our').map(e => e.inn));
   const started = m.our.filter(p => (p.st === 'tit' || p.st === 'usc') && !subIn.has(p.n)), bench = m.our.filter(p => !started.includes(p) && p.st !== 'out'), outL = m.our.filter(p => p.st === 'out');
-  const isGk = p => p.gk || GK_NUMS.includes(p.n), gk1 = started.find(p => p.gk) || started.find(isGk) || null;
-  const restStart = started.filter(p => p !== gk1).sort(byN), gk2 = bench.filter(isGk).sort(byN)[0] || null, restBench = bench.filter(p => p !== gk2).sort(byN);
-  const rows = {}; const put = (r, p, mk) => { rows[r] = [p, mk]; };
-  if(gk1) put(7, gk1, 'P'); let r = 8; restStart.forEach(p => { if(r === 22) r++; put(r++, p, 'P'); });
-  if(gk2) put(22, gk2, 'S');
-  [...restBench.map(p => [p, 'S']), ...outL.sort(byN).map(p => [p, 'N'])].forEach(([p, mk]) => { while(rows[r] || r === 22 && gk2) r++; if(r <= 28) put(r++, p, mk); });
-  const missing = [...started, ...bench, ...outL].filter(p => !Object.values(rows).some(([q]) => q === p));
+  const isGk = p => p.gk || GK_NUMS.includes(p.n);
+  // ordine della nostra numerazione; «GK» accanto ai nostri portieri (non le righe GK del modulo)
+  const list = [...[...started, ...bench].sort(byN).map(p => [p, started.includes(p) ? 'P' : 'S']), ...outL.sort(byN).map(p => [p, 'N'])];
+  const rows = {}; list.slice(0, 22).forEach(([p, mk], i) => { rows[7 + i] = [p, mk]; });
+  const missing = list.slice(22).map(([p]) => p);
   for(let rr = 7; rr <= 28; rr++){ const x = rows[rr];
+    xml = xSet(xml, C.gk + rr, x && isGk(x[0]) ? 'GK' : null);
     xml = xSet(xml, C.sh + rr, x ? x[0].n : null); xml = xSet(xml, C.nm + rr, x ? (x[0].name || '') : null);
     ['P', 'S', 'N'].forEach(k => { xml = xSet(xml, C[k] + rr, x && x[1] === k ? 'X' : null); }); }
   // eventi della nostra squadra
