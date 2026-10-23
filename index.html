@@ -642,7 +642,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'v103';
+const APP_VER = 'v104';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -2862,7 +2862,7 @@ const FBX = {id:null, exp:0, es:null, remote:null, state:'', msg:'', pushing:fal
 function fbSave(){ clearTimeout(FBX.saveT); FBX.saveT = setTimeout(() => { try{ localStorage.setItem(FBK, JSON.stringify(FB)); }catch(e){} }, 300); }
 function fbSaveNow(){ clearTimeout(FBX.saveT); try{ localStorage.setItem(FBK, JSON.stringify(FB)); }catch(e){} }
 function fbCfg(){ return {apiKey: FB.apiKey || FB_CFG.apiKey, db: String(FB.db || FB_CFG.databaseURL || '').trim().replace(/\/+$/, '')}; }
-function fbOn(){ const c = fbCfg(); return !!(c.apiKey && c.db && FB.refresh); }
+function fbOn(){ if(window.GUEST) return false; const c = fbCfg(); return !!(c.apiKey && c.db && FB.refresh); }   // la pagina dei giocatori non si collega mai al database dello staff
 function fbState(st, msg){ FBX.state = st; FBX.msg = msg || ''; updSave(); const c = $('#fbStatus'); if(c) c.innerHTML = fbStatusText(); }
 const fbEmailKey = e => String(e || '').toLowerCase().replace(/\./g, ',');
 /* nome utente senza @ → indirizzo interno del progetto (Firebase vuole un'email, ma non la verifica) */
@@ -3071,7 +3071,8 @@ function fbDiff(){
     if(!(r.del && r.del[id])) upd['del/' + id] = String(t);
   });
   const bg = base._g || {};
-  ['squad', 'spTpl', 'roles', 'logo', 'active'].forEach(k => { const Lv = JSON.stringify(S[k] ?? null); if(Lv !== bg[k]) upd['g/' + k] = Lv; });
+  ['squad', 'spTpl', 'roles', 'logo', 'active'].forEach(k => { const Lv = JSON.stringify(S[k] ?? null); if(Lv === 'null' && bg[k] && bg[k] !== 'null' && k !== 'logo') return;   // mai cancellare rosa, modello, ruoli o partita dello staff con un valore vuoto
+    if(Lv !== bg[k]) upd['g/' + k] = Lv; });
   return upd;
 }
 function fbBaseApply(upd){
