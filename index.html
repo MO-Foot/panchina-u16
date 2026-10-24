@@ -657,7 +657,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1';
+const APP_VER = 'Ver. B1.1';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -4107,7 +4107,7 @@ function vicLink(m, sch, slId, a, b){
   if(pa && pb && !m.their.some(q => q.ck === pb.id)) m.their.forEach(q => { if(q.ck === pa.id) q.ck = pb.id; });
 }
 /* compiti che possono avere lo stesso giocatore (corner difensivo: il vicino al battitore è anche in marcatura; chi esce sul corto può restare fuori area) */
-const SP_SHARE = {cdif:[['vic','mk'],['fuori','aladx'],['fuori','alasx']]};
+const SP_SHARE = {cdif:[['vic','mk'],['fuori','aladx'],['fuori','alasx']], bar:[['barSx','barC'],['barSx','barDx'],['barC','barDx']]};   // barriera: 3 punizioni diverse, lo stesso giocatore può stare in più barriere
 function spBusy(sch, sl, n){ if(!SPIMG[sch.type]) return []; const sh = SP_SHARE[sch.type] || [];
   return sch.slots.filter(o => o !== sl && nums(sch, o).includes(n) && !sh.some(([a, b]) => (a === sl.id && b === o.id) || (b === sl.id && a === o.id))); }
 const spBusyLab = (sch, sl, n) => { const b = spBusy(sch, sl, n); return b.length ? 'già: ' + b.map(o => tr(o.label)).join(', ') : ''; };
