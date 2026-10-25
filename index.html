@@ -667,7 +667,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.13';
+const APP_VER = 'Ver. B1.14';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -2727,9 +2727,7 @@ const ACT = {
     if(inn && inn.on) return toast('Il n°'+n+' è già in campo');
     if(!inn){ inn = {id:uid(), n, name:$('#sName').value.trim(), gk:false, on:true, h:0, cm:'', role:'', mk:null, ck:null, pb:false, note:''}; m.their.push(inn); }
     else if($('#sName').value.trim()) inn.name = $('#sName').value.trim();
-    phCopy(m, out.id, inn.id);
-    Object.assign(inn, {on:true, x:out.x, y:out.y, mk:out.mk, ck:out.ck, gk:out.gk, slot:out.slot});
-    Object.assign(out, {on:false, exited:true, mk:null, ck:null, pb:false, gk:false, slot:null});
+    inn.exited = false; swapOpp(m, out, inn);   // stesso cambio di sempre: posizioni, marcature, piani salvati e cronologia
     addNote({cat:'Marcature', side:'marc', text:`Cambio loro: esce ${out.n}, entra ${n}${inn.mk?' (lo marca '+nOur(inn.mk)+')':''}`, auto:true});
     UI.sel = inn.id; save(); closeModal(); render();
     toast(`Entrato il n°${n}: segna la sua altezza`, 'Vai alle altezze', () => { S.view = 'corner'; UI.spTab = 'alt'; render(); });
