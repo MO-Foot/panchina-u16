@@ -667,7 +667,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.14';
+const APP_VER = 'Ver. B1.15';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -3544,7 +3544,7 @@ const STAFF_ROLES = {
   tr:{lab:'Tribuna (match analyst): Lavagna con messaggi, Campo, Pre-partita e cambi (Tabellino / Cambi)', short:'Tribuna', views:['board','campo','pre','cambi'], clock:false},
   hc:{lab:'Head coach (a casa): risultato, cambi e minuti in diretta, solo lettura', short:'Head coach', views:['live'], clock:false, ro:true}
 };
-const ALL_VIEWS = ['pre','campo','board','corner','note','int','cambi','arch'];
+const ALL_VIEWS = ['pre','campo','board','corner','int','cambi','arch'];   // «Note» nascosta su richiesta di Mo (si rimette aggiungendo 'note')
 const myKey = () => (typeof fbOn === 'function' && fbOn() && FB.email) ? fbShowUser(FB.email).trim().toLowerCase() : null;
 function myRole(){ const k = myKey(); if(!k || !S.roles) return 'all';
   const norm = x => String(x || '').trim().toLowerCase(), base = x => norm(x).split('@')[0];
