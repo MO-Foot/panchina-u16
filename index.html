@@ -668,7 +668,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.17';
+const APP_VER = 'Ver. B1.18';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -3197,7 +3197,7 @@ const shId = () => { const a = new Uint8Array(18); crypto.getRandomValues(a); re
 const shUrl = id => (/^https?:$/.test(location.protocol) ? location.origin + location.pathname : SITE_URL) + '?g=' + id;
 const fmtZ = t => new Date(t).toLocaleString('it-CH', {timeZone:'Europe/Zurich', weekday:'short', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
 function shPayload(m){
-  return JSON.stringify({opp:m.opp || '', date:m.date || '', comp:m.comp || '', kit:m.kit || null, halfLen:m.halfLen || 40,
+  return JSON.stringify({opp:m.opp || '', date:m.date || '', comp:m.comp || '', kit:m.kit || null, ourKit:m.ourKit === 2 ? 2 : 1, halfLen:m.halfLen || 40,
     our:m.our.map(p => ({id:p.id, n:p.n, name:p.name || '', fname:p.fname || '', st:p.st, gk:!!p.gk})),
     their:m.their.map(q => ({id:q.id, n:q.n, name:q.name || '', on:!!q.on, ck:q.ck || null, mk:q.mk || null, h:q.h || 0, gk:!!q.gk, x:q.x, y:q.y})), sp:m.sp || []});
 }
@@ -3256,7 +3256,7 @@ async function guestLoad(){
   clearTimeout(UI.gT); UI.gT = setTimeout(guestLoad, 30000);
   clearTimeout(UI.gEnd); UI.gEnd = setTimeout(guestLoad, meta.to - Date.now() + 500);
 }
-function guestRender(){ if(!S.matches.guest) return; const gb = $('#guestBox'); if(gb) gb.innerHTML = ''; let ov = $('#pvOv'); if(!ov){ ov = document.createElement('div'); ov.id = 'pvOv'; document.body.appendChild(ov); } ov.className = 'pv'; ov.innerHTML = pvBody(M(), 'tablet'); i18nTree(ov); }
+function guestRender(){ if(!S.matches.guest) return; try{ applyKitVars(S.matches.guest); }catch(e){} const gb = $('#guestBox'); if(gb) gb.innerHTML = ''; let ov = $('#pvOv'); if(!ov){ ov = document.createElement('div'); ov.id = 'pvOv'; document.body.appendChild(ov); } ov.className = 'pv'; ov.innerHTML = pvBody(M(), 'tablet'); i18nTree(ov); }
 /* fusione a tre vie: se due dispositivi cambiano lo stesso blocco (es. palle ferme) nello stesso momento,
    si tengono le modifiche di entrambi campo per campo; solo se toccano proprio lo stesso valore vince l'ultima di questo dispositivo */
 const canon = v => v === undefined ? 'u' : JSON.stringify(v, (k, x) => x && typeof x === 'object' && !Array.isArray(x) ? Object.keys(x).sort().reduce((o, kk) => (o[kk] = x[kk], o), {}) : x);
