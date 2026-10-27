@@ -670,7 +670,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.22';
+const APP_VER = 'Ver. B1.23';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -3254,7 +3254,7 @@ async function guestLoad(){
   let d = null; try{ const r = await fetch(`${db}/share/${id}/d.json`, {cache:'no-store'}); if(r.ok) d = await r.json(); }catch(e){}
   if(!d) return show(`<div class="gmsg"><h1>Non disponibile</h1><p>Riprova fra poco.</p></div>`);
   if(d !== UI.gLast){ UI.gLast = d; const g = JSON.parse(d); g.id = 'guest'; g.notes = []; g.clock = {half:1, run:false, t0:null, el:0}; g.plans = []; S.matches = {guest:g}; S.cur = 'guest';
-    UI.pvTab = UI.pvTab || 'me'; guestRender(); }
+    if(!UI.pvTab) UI.pvTab = (g.sp && g.sp[0]) ? g.sp[0].id : 'me'; guestRender(); }
   clearTimeout(UI.gT); UI.gT = setTimeout(guestLoad, 30000);
   clearTimeout(UI.gEnd); UI.gEnd = setTimeout(guestLoad, meta.to - Date.now() + 500);
 }
@@ -4636,19 +4636,20 @@ function pvMine(m, edit){
 }
 function pvBody(m, mode){
   const schs = (m.sp || []);
-  const tabs = [['me', 'Il mio compito'], ...schs.map(s => [s.id, s.name])];
+  const tabs = [...schs.map(s => [s.id, s.name]), ['me', 'Il mio compito']];   // prima le immagini degli schemi, poi «Il mio compito»
+  if(!tabs.some(t => t[0] === UI.pvTab)) UI.pvTab = tabs[0][0];
   const nav = mode === 'file'
     ? `<nav class="pvnav">${tabs.map(([id, l]) => `<a href="#pv-${esc(id)}">${esc(l)}</a>`).join('')}</nav>`
-    : `<nav class="pvnav">${tabs.map(([id, l]) => `<button class="${(UI.pvTab || 'me') === id ? 'on' : ''}" data-act="pvTab" data-v="${esc(id)}">${esc(l)}</button>`).join('')}</nav>`;
+    : `<nav class="pvnav">${tabs.map(([id, l]) => `<button class="${UI.pvTab === id ? 'on' : ''}" data-act="pvTab" data-v="${esc(id)}">${esc(l)}</button>`).join('')}</nav>`;
   const title = `<div class="pvhead"><h1>Palle ferme${m.opp ? ' · vs ' + esc(m.opp) : ''}</h1><small>${fmtDate(m.date)}</small><span style="flex:1"></span>${mode === 'file' ? '' : `<span class="pvlang" data-noi18n>${LANGS.map(([k]) => `<button class="${k===LANG?'on':''}" data-act="pvLang" data-l="${k}">${k.toUpperCase()}</button>`).join('')}</span>`}${mode === 'file' ? '' : '<button class="btn" data-act="pvShare" style="background:#fff;color:#14181f">📤 Invia ai giocatori</button><button class="btn" data-act="pvClose" style="background:#fff;color:#14181f" aria-label="Chiudi">✕ Chiudi</button>'}</div>`;
-  const secs = [pvMine(m, mode !== 'file'), ...schs.map(s => pvSection(m, s))];
-  const shown = mode === 'file' ? secs.join('') : secs.filter((_, i) => tabs[i][0] === (UI.pvTab || 'me')).join('');
+  const secs = [...schs.map(s => pvSection(m, s)), pvMine(m, mode !== 'file')];
+  const shown = mode === 'file' ? secs.join('') : secs.filter((_, i) => tabs[i][0] === UI.pvTab).join('');
   return title + nav + shown + (mode === 'file' ? `<div class="foot">Aggiornato: ${new Date().toLocaleDateString('it-CH')} ${new Date().toLocaleTimeString('it-CH', {hour:'2-digit', minute:'2-digit'})}</div>` : '');
 }
 function pvRender(){
   if(window.GUEST) return guestRender();
   let ov = $('#pvOv'); if(!ov){ ov = document.createElement('div'); ov.id = 'pvOv'; document.body.appendChild(ov); }
-  const m = M(); if(!(m.sp || []).some(s => s.id === UI.pvTab)) UI.pvTab = UI.pvTab === 'me' ? 'me' : 'me';
+  const m = M(); if(UI.pvTab !== 'me' && !(m.sp || []).some(s => s.id === UI.pvTab)) UI.pvTab = (m.sp && m.sp[0]) ? m.sp[0].id : 'me';
   ov.className = 'pv'; ov.innerHTML = pvBody(m, 'tablet');
 }
 /* «Il mio compito»: aggiungere, spostare o togliere un compito direttamente dalla scheda del giocatore */
@@ -4686,7 +4687,7 @@ ACT.pvZoom = el => { const src = el.querySelector('.spimg'); if(!src) return; le
   z.innerHTML = `<div class="zin ${port ? 'rot' : ''}" style="width:${Math.round(w)}px">${src.outerHTML}</div><span class="zx">✕</span>`;
   document.body.appendChild(z); };
 ACT.pvZoomClose = () => { const z = $('#pvZoom'); if(z) z.remove(); };
-ACT.pvOpen = () => { UI.pvTab = UI.pvTab || 'me'; UI.pvLang0 = LANG; pvRender(); document.documentElement.classList.add('pvon'); };
+ACT.pvOpen = () => { UI.pvTab = UI.pvTab || ((M().sp && M().sp[0]) ? M().sp[0].id : 'me'); UI.pvLang0 = LANG; pvRender(); document.documentElement.classList.add('pvon'); };
 ACT.pvClose = () => { const ov = $('#pvOv'); if(ov) ov.remove(); document.documentElement.classList.remove('pvon'); if(UI.pvLang0 && UI.pvLang0 !== LANG) setLang(UI.pvLang0); UI.pvLang0 = null; };
 ACT.pvLang = el => { const l = el.dataset.l; if(l === LANG) return; LANG = l; document.documentElement.lang = l; i18nRestore(); render(); i18nTree(document.body); langBtnTx(); pvRender(); };   // lingua scelta dal giocatore: torna quella dello staff alla chiusura
 ACT.pvTab = el => { UI.pvTab = el.dataset.v; pvRender(); const ov = $('#pvOv'); if(ov) ov.scrollTop = 0; };
