@@ -654,15 +654,15 @@ const DEF_SP = [
     {id:'barC', label:'Barriera centrale', p:{all:[]}},
     {id:'barDx', label:'Barriera a destra', p:{all:[]}}
   ]},
-  {id:'pdif', name:'Punizione laterale difensiva', type:'pdif', sides:false, slots:[
-    {id:'bar', label:'Barriera', p:{all:[]}},
-    {id:'bar2', label:'2° uomo in barriera (se battono in due)', p:{all:[]}},
-    {id:'palo2', label:'Secondo palo', p:{all:[]}},
-    {id:'l4', label:'Linea a 4 (altezza 1° palo, 8-10 m)', p:{all:[2,4,5,3]}},
-    {id:'blk', label:'Prima linea di blocco', p:{all:[8,7,6]}},
-    {id:'dav', label:'Spazio davanti alla linea a 4', p:{all:[9]}},
-    {id:'var', label:'Spazio per le varianti', p:{all:[11]}},
-    {id:'pal', label:'Verso il pallone', p:{all:[10]}}
+  {id:'pdif', name:'Punizione laterale difensiva', type:'pdif', sides:true, slots:[
+    {id:'bar', label:'Barriera', p:{dx:[], sx:[]}},
+    {id:'bar2', label:'2° uomo in barriera (se battono in due)', p:{dx:[], sx:[]}},
+    {id:'palo2', label:'Secondo palo', p:{dx:[], sx:[]}},
+    {id:'l4', label:'Linea a 4 (altezza 1° palo, 8-10 m)', p:{dx:[2,4,5,3], sx:[2,4,5,3]}},
+    {id:'blk', label:'Prima linea di blocco', p:{dx:[8,7,6], sx:[8,7,6]}},
+    {id:'dav', label:'Spazio davanti alla linea a 4', p:{dx:[9], sx:[9]}},
+    {id:'var', label:'Spazio per le varianti', p:{dx:[11], sx:[11]}},
+    {id:'pal', label:'Verso il pallone', p:{dx:[10], sx:[10]}}
   ]}
 ];
 const clone = o => JSON.parse(JSON.stringify(o));
@@ -670,7 +670,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.26';
+const APP_VER = 'Ver. B1.27';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -892,6 +892,7 @@ function render(){
   if(m && !HIST_BASE[m.id]) histBase(m);
   if(m && UNDO.cur[m.id] === undefined) undoBase(m);
   try{ migCcd(); }catch(e){}
+  try{ migPdifSides(); }catch(e){}
   try{ if(myKey() && FBX.ready && rolesKnown() && STAFF_ROLES[myRole()] && (myRole() === 'all' || (STAFF_ROLES[myRole()].views || []).includes('pre'))) spSync(m); }catch(e){}
   S.theme = 'rosso'; document.documentElement.dataset.theme = S.theme;   // solo maglia rossa
   document.documentElement.dataset.tok = S.tok || 'm';
@@ -1177,6 +1178,14 @@ const ROLE_OLD = {GK:'POR', RB:'TD', RCB:'DCD', LCB:'DCS', LB:'TS', RCM:'CCDX', 
 // posto di ogni ruolo nel master (nostra porta a sinistra, y grande = fascia destra)
 const ROLE_IDEAL = {POR:{x:6,y:50}, TD:{x:24,y:84}, DCD:{x:20,y:62}, DCS:{x:20,y:38}, TS:{x:24,y:16}, CCDX:{x:37,y:62}, CCSX:{x:37,y:38}, '8 DX':{x:48,y:68}, '8 SX':{x:48,y:32}, AD:{x:60,y:84}, AS:{x:60,y:16}, TR:{x:56,y:50}, ATT:{x:74,y:50}};
 /* correzione: il 18 (e l'8) è centrocampista centrale DESTRO, il 6 e il 16 SINISTRO. Le tabelle già salvate vengono corrette una volta sola. */
+/* punizione laterale: destra e sinistra completamente separate (giocatori e posizioni). Una volta: ognuno dei due lati parte dai giocatori di adesso */
+function pdifSplit(list){ let ch = false; (list || []).forEach(sch => { if(sch && sch.type === 'pdif' && !sch.sides){ sch.sides = true; ch = true;
+  (sch.slots || []).forEach(sl => { const a = (sl.p && Array.isArray(sl.p.all)) ? sl.p.all : []; sl.p = {dx:a.slice(), sx:a.slice()}; }); } }); return ch; }
+function migPdifSides(){
+  if(myRole() !== 'all' || !(typeof FBX !== 'undefined' && FBX.ready)) return;
+  let ch = false; Object.values(S.matches).forEach(m => { if(pdifSplit(m.sp)) ch = true; }); if(Array.isArray(S.spTpl) && pdifSplit(S.spTpl)) ch = true;
+  if(ch) save(true);
+}
 function migCcd(){
   if(S.migCcd || !(typeof FBX !== 'undefined' && FBX.ready) || myRole() !== 'all') return;
   let ch = false; const t = S.numRoles;
@@ -4214,7 +4223,7 @@ function spImgView(m, sch){
   }
   const custom = Object.keys(((sch.ipos || {})[side]) || {}).length || Object.keys(((sch.ioppPos || {})[side]) || {}).length || (side === 'dx' && !sch.ipos && sch.pos && Object.keys(sch.pos).length);
   const sideSeg = C.mirror && !sch.sides ? `<div class="seg"><button class="${side === 'dx' ? 'on' : ''}" data-act="spImgSide" data-v="dx" data-sch="${sch.id}">Da destra</button><button class="${side === 'sx' ? 'on' : ''}" data-act="spImgSide" data-v="sx" data-sch="${sch.id}">Da sinistra</button></div>` : '';
-  return `<div class="spimgbar"><div class="seg"><button class="on" disabled style="opacity:1">Immagine</button><button data-act="spImgList" data-t="${sch.type}">Elenco</button></div>${sideSeg}<label class="chk"><input type="checkbox" data-act="spNamesT" ${names ? 'checked' : ''}> Cognomi</label>${names ? `<div class="seg"><button class="${sch.nmTop ? '' : 'on'}" data-act="spNmTop" data-v="0" data-sch="${sch.id}">Nomi sotto</button><button class="${sch.nmTop ? 'on' : ''}" data-act="spNmTop" data-v="1" data-sch="${sch.id}">Nomi sopra</button></div>` : ''}<button class="btn" data-act="spAddOur" data-sch="${sch.id}" style="min-height:36px">+ Nostro</button><button class="btn" data-act="spAddOpp" data-sch="${sch.id}" style="min-height:36px">+ Avversario</button><span style="flex:1"></span>${SP_FIXED[sch.type] ? `<button class="btn ${UI.spUnlock ? 'pri' : ''}" data-act="spUnlock" style="min-height:36px" title="Le nostre maglie nei corner sono bloccate: sbloccale per sistemare i posti">${UI.spUnlock ? '🔓 Fatto: blocca i posti' : '🔒 Sposta i posti'}</button>` : ''}${C.mirror && !SP_FIXED[sch.type] ? `<button class="btn" data-act="spMirror" data-sch="${sch.id}" style="min-height:36px" title="Questo lato diventa la copia a specchio dell'altro">⇋ ${side === 'sx' ? 'Specchia da destra' : 'Specchia da sinistra'}</button>` : ''}${custom ? `<button class="btn" data-act="spPosReset" data-sch="${sch.id}" style="min-height:36px">↺ Posizioni iniziali</button>` : ''}<button class="btn" data-act="spPptx" data-sch="${sch.id}" style="min-height:36px">⬇ PowerPoint</button></div>
+  return `<div class="spimgbar"><div class="seg"><button class="on" disabled style="opacity:1">Immagine</button><button data-act="spImgList" data-t="${sch.type}">Elenco</button></div>${sideSeg}<label class="chk"><input type="checkbox" data-act="spNamesT" ${names ? 'checked' : ''}> Cognomi</label>${names ? `<div class="seg"><button class="${sch.nmTop ? '' : 'on'}" data-act="spNmTop" data-v="0" data-sch="${sch.id}">Nomi sotto</button><button class="${sch.nmTop ? 'on' : ''}" data-act="spNmTop" data-v="1" data-sch="${sch.id}">Nomi sopra</button></div>` : ''}<button class="btn" data-act="spAddOur" data-sch="${sch.id}" style="min-height:36px">+ Nostro</button><button class="btn" data-act="spAddOpp" data-sch="${sch.id}" style="min-height:36px">+ Avversario</button><span style="flex:1"></span>${SP_FIXED[sch.type] ? `<button class="btn ${UI.spUnlock ? 'pri' : ''}" data-act="spUnlock" style="min-height:36px" title="Le nostre maglie nei corner sono bloccate: sbloccale per sistemare i posti">${UI.spUnlock ? '🔓 Fatto: blocca i posti' : '🔒 Sposta i posti'}</button>` : ''}${C.mirror && !SP_FIXED[sch.type] && (!sch.sides || SP_NOMIRROR[sch.type]) ? `<button class="btn" data-act="spMirror" data-sch="${sch.id}" style="min-height:36px" title="Questo lato diventa la copia a specchio dell'altro">⇋ ${side === 'sx' ? 'Specchia da destra' : 'Specchia da sinistra'}</button>` : ''}${custom ? `<button class="btn" data-act="spPosReset" data-sch="${sch.id}" style="min-height:36px">↺ Posizioni iniziali</button>` : ''}<button class="btn" data-act="spPptx" data-sch="${sch.id}" style="min-height:36px">⬇ PowerPoint</button></div>
     <div class="spimg ${sch.nmTop ? 'nmtop' : ''}" data-sch="${sch.id}" data-side="${side}"><img src="${SPIMG_BG[C.img]}" alt="" draggable="false" class="${mir ? 'mir' : ''}">${h}</div>
     <p class="hint">${SP_FIXED[sch.type] ? 'Posizioni fisse: tocca una maglia per cambiare o togliere il giocatore di quella posizione, «+» per aggiungerlo. Gli avversari si trascinano; tocca un avversario per toglierlo. Con «+ Nostro» e «+ Avversario» aggiungi altri giocatori.' : 'Tocca una maglia per cambiare o togliere il giocatore, «+» per aggiungerlo; trascinala per spostarla (anche gli avversari). Con «+ Nostro» e «+ Avversario» aggiungi altri giocatori; tocca un avversario per toglierlo.'}${md.mkS ? ' Nelle caselle bianche scegli l\'avversario da marcare. In rosa chiaro chi ha due compiti: va sempre in fondo alla lista, perché è il più vicino al corner.' : ''}</p>`;
 }
@@ -4297,6 +4306,12 @@ function spFreezeOther(m, sch, side){
 ACT.spMirror = el => { const m = M(), sch = m.sp.find(x => x.id === el.dataset.sch); if(!sch) return; const side = spImgSide(sch);
   if(!sch.ipos){ sch.ipos = {dx:Object.assign({}, sch.pos || {}), sx:{}}; delete sch.pos; }
   if(!sch.ioppPos){ sch.ioppPos = {dx:Object.assign({}, sch.oppPos || {}), sx:{}}; delete sch.oppPos; }
+  if(SP_NOMIRROR[sch.type]){ const os = side === 'dx' ? 'sx' : 'dx';
+    if(sch.sides) sch.slots.forEach(sl => { if(sl.p) sl.p[side] = (sl.p[os] || []).slice(); });   // stessi giocatori dell'altro lato
+    const md = spSideModel(m, sch, os), P = {}, O = {};
+    md.items.forEach(it => { if(it.kind === 'our' || it.kind === 'gk' || it.kind === 'empty') P[it.key] = [+(100 - it.x).toFixed(1), it.y]; else if(it.kind === 'opp') O[it.q.id] = [+(100 - it.x).toFixed(1), it.y]; });
+    sch.ipos[side] = P; sch.ioppPos[side] = O; save(); render();
+    return toast(side === 'sx' ? 'Copiato a specchio da destra' : 'Copiato a specchio da sinistra'); }
   spFreezeOther(m, sch, side); sch.ipos[side] = {}; sch.ioppPos[side] = {}; save(); render();
   toast(side === 'sx' ? 'Copiato a specchio da destra' : 'Copiato a specchio da sinistra'); };
 /* trascinare maglie e avversari sull'immagine */
