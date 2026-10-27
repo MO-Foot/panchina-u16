@@ -670,7 +670,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.24';
+const APP_VER = 'Ver. B1.25';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -2806,7 +2806,12 @@ const ACT = {
     if(!list.length) return toast('Nessun giocatore disponibile: inseriscili in Pre-partita');
     pickModal(`${sl.label}: aggiungi`, list.map(p => ({label:String(p.n), sub:[p.name, p.st==='tit' ? '' : ST_LAB[p.st], spBusyLab(sch, sl, p.n)].filter(Boolean).join(' · '), cls:spBusy(sch, sl, p.n).length ? 'used' : ''})), i => {
       const b = list[i].n, busy = spBusy(sch, sl, b); busy.forEach(o => setNums(sch, o, nums(sch, o).filter(x => x !== b)));   // ha già un altro compito: lo lascia (niente doppioni)
-      setNums(sch, sl, [...cur, b]); save(); render(); if(busy.length) toast(`Il ${b} passa da «${tr(busy[0].label)}» a «${tr(sl.label)}»`); }, '', true);
+      setNums(sch, sl, [...cur, b]);
+      // il giocatore va esattamente sul «+» toccato (negli schemi con le maglie fisse, come i corner, conta il posto)
+      const box = el.closest && el.closest('.spimg'), side = (box && box.dataset.side) || 'dx';
+      if(el.dataset.x != null && el.dataset.x !== '' && !SP_FIXED[sch.type] && SPIMG[sch.type]){ if(!sch.ipos){ sch.ipos = {dx:Object.assign({}, sch.pos || {}), sx:{}}; delete sch.pos; }
+        (sch.ipos[side] || (sch.ipos[side] = {}))[sl.id + '#' + b] = [+el.dataset.x, +el.dataset.y]; }
+      save(); render(); if(busy.length) toast(`Il ${b} passa da «${tr(busy[0].label)}» a «${tr(sl.label)}»`); }, '', true);
   },
   spNum(el){
     const m = M(), sch = curSch(m), sl = sch.slots.find(x => x.id === el.dataset.sl), n = +el.dataset.n, cur = nums(sch, sl), o = ourByN(n);
@@ -4158,7 +4163,9 @@ function spImgModel(m, sch){
       else q = atN(sl.id + '#' + n) || (cur[kI] ? cur[kI] : spFree(at(kI, b[0], b[1]), items)); lastX = q[0]; lastY = q[1];
       items.push({kind:'our', key:sl.id + '#' + n, kI, sl, n, p:ourByN(n), x:q[0], y:q[1], pink:vicN.includes(n) && sch.type === 'cdif'}); });
     const maxN = (C.max && C.max[id]) || pos.length;
-    for(let k = arr.length; k < pos.length; k++){ const q = at(id + ':' + k, pos[k][0], pos[k][1]); items.push({kind:'empty', key:id + ':' + k, sl, x:q[0], y:q[1]}); }   // posti ancora liberi
+    if(pos.length > 1){ const mine = items.filter(it => it.kind === 'our' && it.sl === sl);   // posti ancora liberi (anche in mezzo alla linea)
+      let free = pos.length - arr.length;
+      pos.forEach((pp, k) => { if(free <= 0) return; const q = at(id + ':' + k, pp[0], pp[1]); if(mine.some(it => Math.abs(it.x - q[0]) < 2.5 && Math.abs(it.y - q[1]) < 4)) return; items.push({kind:'empty', key:id + ':' + k, sl, x:q[0], y:q[1]}); free--; }); }
     if(arr.length >= pos.length && (pos.length > 1 || (C.max && C.max[id])) && arr.length < maxN) items.push({kind:'add', sl, x:+(lastX + (mir ? -1 : 1) * Math.abs(step) * .72).toFixed(1), y:lastY});
   });
   // giocatori aggiunti a mano («+ Nostro»)
@@ -4184,7 +4191,7 @@ function spImgView(m, sch){
   md.items.forEach(it => {
     if(it.kind === 'gk') h += `<div class="sh gk" data-drag="gk" style="left:${it.x}%;top:${it.y}%">${shirtSvg('#8d8f55')}<b>${it.n}</b>${names && it.p ? `<i>${esc(surname(it.p))}</i>` : ''}</div>`;
     else if(it.kind === 'add') h += `<button class="addmini" style="left:${it.x}%;top:${it.y}%" data-act="spAdd" data-sl="${it.sl.id}" title="${esc(it.sl.label)}: aggiungi un giocatore">+</button>`;
-    else if(it.kind === 'empty') h += `<button class="sh empty" style="left:${it.x}%;top:${it.y}%" data-act="spAdd" data-sl="${it.sl.id}" title="${esc(it.sl.label)}: aggiungi">${shirtSvg('rgba(255,255,255,.18)', true)}<b>+</b></button>`;
+    else if(it.kind === 'empty') h += `<button class="sh empty" style="left:${it.x}%;top:${it.y}%" data-act="spAdd" data-sl="${it.sl.id}" data-x="${it.x}" data-y="${it.y}" title="${esc(it.sl.label)}: aggiungi">${shirtSvg('rgba(255,255,255,.18)', true)}<b>+</b></button>`;
     else if(it.kind === 'our') h += `<button class="sh ${it.p ? (it.p.st === 'tit' ? '' : 'off') : 'nr'}" style="left:${it.x}%;top:${it.y}%" data-act="spNum" data-sl="${it.sl.id}" data-n="${it.n}" data-drag="${it.key}" title="${esc(it.sl.label)}: cambia o togli il ${it.n}">${shirtSvg(it.pink ? '#f07f7f' : ourKit(m).sh)}<b>${it.n}</b>${names && it.p ? `<i>${esc(surname(it.p))}</i>` : ''}</button>`;
     else h += `<div class="opptk" data-act="spOpp" data-id="${esc(it.q.id)}" data-drag="${it.key}" style="left:${it.x}%;top:${it.y}%" title="Tocca per togliere, trascina per spostare">${it.q.n}</div>`;
   });
