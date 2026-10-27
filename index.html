@@ -670,7 +670,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.23';
+const APP_VER = 'Ver. B1.24';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -4149,7 +4149,7 @@ function spImgModel(m, sch){
   Object.entries(C.slots).forEach(([id, pos]) => {
     const srcId = (mir && C.swapSx && C.swapSx[id]) || id, sl = S2(srcId); if(!sl) return;
     let arr = val(sl); if(C.exclude && C.exclude[id]){ const ex = C.exclude[id].flatMap(e => val(S2(e))); arr = arr.filter(n => !ex.includes(n)); }
-    if(!arr.length){ const q = at(id + ':0', pos[0][0], pos[0][1]); items.push({kind:'empty', key:id + ':0', sl, x:q[0], y:q[1]}); return; }
+    if(!arr.length){ pos.forEach((pp, k) => { const q = at(id + ':' + k, pp[0], pp[1]); items.push({kind:'empty', key:id + ':' + k, sl, x:q[0], y:q[1]}); }); return; }   // tutti i posti dello schema già visibili: «+» su quello che vuoi
     const step = pos.length > 1 ? pos[1][0] - pos[0][0] : 7, P0 = i => i < pos.length ? pos[i] : [pos[pos.length - 1][0] + (i - pos.length + 1) * step, pos[pos.length - 1][1]];
     let lastX = 0, lastY = 0;
     arr.forEach((n, i) => { const b = P0(i), kI = id + ':' + i;
@@ -4158,7 +4158,8 @@ function spImgModel(m, sch){
       else q = atN(sl.id + '#' + n) || (cur[kI] ? cur[kI] : spFree(at(kI, b[0], b[1]), items)); lastX = q[0]; lastY = q[1];
       items.push({kind:'our', key:sl.id + '#' + n, kI, sl, n, p:ourByN(n), x:q[0], y:q[1], pink:vicN.includes(n) && sch.type === 'cdif'}); });
     const maxN = (C.max && C.max[id]) || pos.length;
-    if((pos.length > 1 || (C.max && C.max[id])) && arr.length < maxN) items.push({kind:'add', sl, x:+(lastX + (mir ? -1 : 1) * Math.abs(step) * .72).toFixed(1), y:lastY});
+    for(let k = arr.length; k < pos.length; k++){ const q = at(id + ':' + k, pos[k][0], pos[k][1]); items.push({kind:'empty', key:id + ':' + k, sl, x:q[0], y:q[1]}); }   // posti ancora liberi
+    if(arr.length >= pos.length && (pos.length > 1 || (C.max && C.max[id])) && arr.length < maxN) items.push({kind:'add', sl, x:+(lastX + (mir ? -1 : 1) * Math.abs(step) * .72).toFixed(1), y:lastY});
   });
   // giocatori aggiunti a mano («+ Nostro»)
   const xs = S2('xtra'); if(xs) val(xs).forEach((n, i) => { const q = atN('xtra#' + n) || at('xtra:' + n, 44 + (i % 4) * 6, 60 + Math.floor(i / 4) * 9); items.push({kind:'our', key:'xtra#' + n, sl:xs, n, p:ourByN(n), x:q[0], y:q[1]}); });
