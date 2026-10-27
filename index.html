@@ -670,7 +670,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.25';
+const APP_VER = 'Ver. B1.26';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -4127,6 +4127,8 @@ const spImgOn = sch => !!SPIMG[sch.type] && !((S.imgList || {})[sch.type]);
 /* lato: per i corner offensivi è quello della barra («Da destra / Da sinistra»), per gli altri è salvato nello schema */
 const spImgSide = sch => sch.sides ? UI.side : (SPIMG[sch.type].mirror && sch.imgSide === 'sx' ? 'sx' : 'dx');
 const SP_FIXED = {coff:true, cdif:true};
+const SP_NOMIRROR = {pdif:true};
+let MIG_NM = false;   // lati indipendenti: quello che metti da destra non cambia la sinistra (e viceversa)
 /* maglia messa al posto predefinito: se coprirebbe un compagno già disegnato, la sposto accanto (mai maglie sovrapposte) */
 function spFree(q, items){
   const ours = items.filter(it => it.kind === 'our' || it.kind === 'gk'), hit = (x, y) => ours.some(it => Math.abs(it.x - x) < 3 && Math.abs(it.y - y) < 4);
@@ -4145,8 +4147,11 @@ function spImgModel(m, sch){
     Object.values(sch.ipos).forEach(P => P && Object.keys(P).forEach(k => { if(drop(k)) delete P[k]; })); sch.posV = 4; sch._dirty = true; }
   else if(FIX && (sch.posV || 0) < 4 && typeof myRole === 'function' && myRole() === 'all'){ sch.posV = 4; sch._dirty = true; }
   const ip = sch.ipos || {}, cur = ip[side] || {}, other = ip[side === 'sx' ? 'dx' : 'sx'] || {}, legacy = (!sch.ipos && sch.pos) || {};
-  const at = (key, x, y) => cur[key] || (C.mirror && other[key] ? [+(100 - other[key][0]).toFixed(1), other[key][1]] : null) || (side === 'dx' && legacy[key]) || [X(x), y];
-  const atN = key => cur[key] || (C.mirror && other[key] ? [+(100 - other[key][0]).toFixed(1), other[key][1]] : null);   // posizione legata al giocatore (compito#numero)
+  if(SP_NOMIRROR[sch.type] && !sch.nmV && !MIG_NM && typeof myRole === 'function' && myRole() === 'all'){   // una volta: fisso i due lati come si vedevano finora, poi diventano indipendenti
+    MIG_NM = true; try { spFreezeOther(m, sch, 'dx'); } finally { MIG_NM = false; } sch.nmV = 1; sch._dirty = true; }
+  const MIRF = C.mirror && !(SP_NOMIRROR[sch.type] && sch.nmV);   // punizioni laterali: i due lati non si copiano mai a specchio
+  const at = (key, x, y) => cur[key] || (MIRF && other[key] ? [+(100 - other[key][0]).toFixed(1), other[key][1]] : null) || (side === 'dx' && legacy[key]) || [X(x), y];
+  const atN = key => cur[key] || (MIRF && other[key] ? [+(100 - other[key][0]).toFixed(1), other[key][1]] : null);   // posizione legata al giocatore (compito#numero)
   const items = [];
   const fixedPos = FIX ? Object.entries(cur).filter(([k, v]) => /:\d+$/.test(k) && Array.isArray(v)).map(([, v]) => ({kind:'our', x:v[0], y:v[1]})) : [];   // posti già fissati: le maglie nuove non ci vanno sopra
   const vicN = sch.type === 'cdif' ? val(S2('vic')) : [];
@@ -4179,7 +4184,7 @@ function spImgModel(m, sch){
   const iop = sch.ioppPos || {}, op = iop[side] || {}, opO = iop[side === 'sx' ? 'dx' : 'sx'] || {};
   const hide = new Set(sch.ohide || []), base = opps.slice(0, Math.max(C.opp.length, table ? 10 : 0));
   const added = (sch.oadd || []).map(id => m.their.find(q => q.id === id) || (String(id).startsWith('gen_') ? {id, n:'', gen:true} : null)).filter(q => q && !base.includes(q));
-  const vOpp = (q, d) => op[q.id] || (C.mirror && opO[q.id] ? [+(100 - opO[q.id][0]).toFixed(1), opO[q.id][1]] : null) || [X(d[0]), d[1]];
+  const vOpp = (q, d) => op[q.id] || (MIRF && opO[q.id] ? [+(100 - opO[q.id][0]).toFixed(1), opO[q.id][1]] : null) || [X(d[0]), d[1]];
   base.forEach((q, i) => { if(hide.has(q.id)) return; const v = vOpp(q, C.opp[i] || [60 + (i % 3) * 5, 45 + Math.floor(i / 3) * 6]); items.push({kind:'opp', key:'o:' + q.id, q, x:v[0], y:v[1]}); });
   added.forEach((q, i) => { const v = vOpp(q, [58 + (i % 4) * 6, 54 + Math.floor(i / 4) * 8]); items.push({kind:'opp', key:'o:' + q.id, q, x:v[0], y:v[1], extra:true}); });
   return {C, side, mir, items, mkS:table ? mkS : null, vicN};
