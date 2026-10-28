@@ -670,7 +670,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.27';
+const APP_VER = 'Ver. B1.28';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -2051,7 +2051,7 @@ function bindBoard(){
 /* ---- Palle inattive ---- */
 const ourByN = n => M().our.find(p => p.n === n);
 function nums(sch, sl, side){ return (sch.sides ? sl.p[side || UI.side] : sl.p.all) || []; }
-function setNums(sch, sl, arr){ if(sch.sides) sl.p[UI.side] = arr; else sl.p.all = arr; }
+function setNums(sch, sl, arr){ arr = (arr || []).filter((x, i, a) => a.indexOf(x) === i); if(sch.sides) sl.p[UI.side] = arr; else sl.p.all = arr; }   // mai lo stesso giocatore due volte nello stesso compito
 function pn(n){ const p = ourByN(n); const cls = !p ? 'nr' : (p.st === 'tit' ? '' : 'off');
   return `<span class="pn ${cls}"><b>${n}</b><small>${p ? (esc(surname(p)) || '&nbsp;') : 'non in rosa'}</small></span>`; }
 /* formazione: chi esce dai titolari lascia il posto; il primo che diventa titolare dopo eredita posizione nel master e nelle fasi, marcature e compiti nelle palle ferme */
@@ -2096,7 +2096,7 @@ function lineupChange(m, p, was){
     snap.opp.forEach(([id, mk, ck]) => { const q = mm.their.find(x => x.id === id); if(q){ q.mk = mk; q.ck = ck; } });
     const vv = ourBy(v.id), pp = ourBy(p.id); if(vv) vv.gk = snap.gk[0]; if(pp) pp.gk = snap.gk[1]; save(); render(); }), 30);
 }
-function replaceNum(m, a, b){ (m.sp || []).forEach(sch => noteNum(sch, a, b)); (m.plans || []).forEach(pl => pl.slots.forEach(s => { if(s.mk === a) s.mk = b; })); (m.sp || []).forEach(sch => sch.slots.forEach(sl => Object.keys(sl.p).forEach(k => { sl.p[k] = sl.p[k].map(x => x === a ? b : x); }))); }
+function replaceNum(m, a, b){ (m.sp || []).forEach(sch => noteNum(sch, a, b)); (m.plans || []).forEach(pl => pl.slots.forEach(s => { if(s.mk === a) s.mk = b; })); (m.sp || []).forEach(sch => sch.slots.forEach(sl => Object.keys(sl.p).forEach(k => { sl.p[k] = sl.p[k].map(x => x === a ? b : x).filter((x, i, arr) => arr.indexOf(x) === i); }))); }
 function setCk(ourId, oppId){
   const m = M(), prevOpp = oppOn(m).find(q => q.ck === ourId), target = oppId ? oppBy(oppId) : null;
   const targetPrev = target ? target.ck : null;
@@ -4147,6 +4147,7 @@ function spFree(q, items){
   return q;
 }   // corner: posizioni fisse, si cambia il numero toccando la maglia
 function spImgModel(m, sch){
+  (sch.slots || []).forEach(sl => Object.keys(sl.p || {}).forEach(k => { const a = sl.p[k]; if(Array.isArray(a)){ const u = a.filter((x, i) => a.indexOf(x) === i); if(u.length !== a.length){ sl.p[k] = u; sch._dirty = true; } } }));   // pulizia: niente doppioni
   const C = SPIMG[sch.type], side = spImgSide(sch), mir = side === 'sx' && C.mirror, X = x => mir ? +(100 - x).toFixed(1) : x, FIX = !!SP_FIXED[sch.type];
   const lbl = id => ((SP_PDF[sch.type] || {}).slots || {})[id] || SPIMG_LABELS[id] || id;
   Object.keys(C.slots).forEach(id => { const ex = sch.slots.find(s => s.id === id); if(!ex){ sch.slots.push({id, label:lbl(id), p:sch.sides ? {dx:[], sx:[]} : {all:[]}}); sch._dirty = true; } else if(ex.label === id && lbl(id) !== id){ ex.label = lbl(id); sch._dirty = true; } });   // compiti senza nome (es. «port»): prende il nome giusto
@@ -4351,10 +4352,11 @@ function vicLink(m, sch, slId, a, b){
   if(!sch || sch.type !== 'cdif' || (slId !== 'vic' && slId !== 'mk') || a === b) return;
   const other = sch.slots.find(x => x.id === (slId === 'vic' ? 'mk' : 'vic')); if(!other) return;
   const k = sch.sides ? UI.side : 'all', arr = other.p[k] || [];
-  if(!arr.includes(a) || arr.includes(b)) return;
-  other.p[k] = arr.map(x => x === a ? b : x);
+  if(!arr.includes(a)) return;
+  other.p[k] = arr.filter(x => x !== b).map(x => x === a ? b : x);   // se b era già in marcatura, non compare due volte
   const pa = ourByN(a), pb = ourByN(b);
   if(pa && pb && !m.their.some(q => q.ck === pb.id)) m.their.forEach(q => { if(q.ck === pa.id) q.ck = pb.id; });
+  else if(pa && pb && slId === 'vic') m.their.forEach(q => { if(q.ck === pa.id) q.ck = null; });   // b marcava già qualcuno: l'avversario di a resta da assegnare
 }
 /* compiti che possono avere lo stesso giocatore (corner difensivo: il vicino al battitore è anche in marcatura; chi esce sul corto può restare fuori area) */
 const SP_SHARE = {cdif:[['vic','mk'],['fuori','aladx'],['fuori','alasx']], bar:[['barSx','barC'],['barSx','barDx'],['barC','barDx']]};   // barriera: 3 punizioni diverse, lo stesso giocatore può stare in più barriere
