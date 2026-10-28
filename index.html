@@ -670,7 +670,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.28';
+const APP_VER = 'Ver. B1.29';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -2837,7 +2837,7 @@ const ACT = {
       setNums(sch, sl, i < list.length ? cur.map(x => x === n ? list[i].n : x) : cur.filter(x => x !== n));
       if(i < list.length) vicLink(m, sch, sl.id, n, list[i].n);
       save(); render();
-      if(i < list.length && !busy.length){ const innN = list[i].n; setTimeout(() => toast(`Il ${innN} al posto del ${n} in «${sl.label}»`, 'In tutti gli schemi', () => { const mm = M(), sc = mm.sp.find(x => x.id === sch.id), keep = sc && sc.slots.find(x => x.id === sl.id); spSubAll(mm, n, innN, keep); save(); render(); toast(`Il ${innN} prende il posto del ${n} in tutte le palle ferme`); }), 40); }
+      if(i < list.length && !busy.length){ const innN = list[i].n; setTimeout(() => toast(`Il ${innN} al posto del ${n} in «${sl.label}»`, 'In tutti gli schemi', () => { const mm = M(), sc = mm.sp.find(x => x.id === sch.id), keep = sc && sc.slots.find(x => x.id === sl.id); spSubAll(mm, n, innN, keep, sc && sc.sides ? UI.side : 'all'); save(); render(); toast(`Il ${innN} prende il posto del ${n} in tutte le palle ferme`); }), 40); }
     }, '', true);
   },
   spRm(el){ const sch = curSch(M()), sl = sch.slots.find(x => x.id === el.dataset.sl); setNums(sch, sl, nums(sch, sl).filter(n => n !== +el.dataset.n)); save(); render(); },
@@ -4269,8 +4269,8 @@ ACT.redo = () => { const m = M(), r = UNDO.redo[m.id] || []; if(!r.length) retur
 ACT.campoPh = el => { UI.campoPh = el.dataset.v; try { localStorage.setItem('panchinaU16.campoPh', UI.campoPh); } catch(e){} UI.sel = null; render(); };
 ACT.gkPrivReset = () => gkPrivReset(false);
 /* cambio nelle palle ferme: chi entra prende il posto di chi esce in TUTTI gli schemi (e nelle marcature dei corner); lascia i compiti che aveva */
-function spSubAll(m, outN, innN, keep){
-  (m.sp || []).forEach(sch => sch.slots.forEach(sl => { if(keep && sl === keep) return; Object.keys(sl.p || {}).forEach(k => { const a = sl.p[k]; if(!Array.isArray(a)) return;
+function spSubAll(m, outN, innN, keep, keepK){
+  (m.sp || []).forEach(sch => sch.slots.forEach(sl => { Object.keys(sl.p || {}).forEach(k => { if(keep && sl === keep && (!keepK || k === keepK)) return; const a = sl.p[k]; if(!Array.isArray(a)) return;
     sl.p[k] = a.includes(outN) ? a.map(x => x === outN ? innN : x).filter((x, i, b) => b.indexOf(x) === i) : a.filter(x => x !== innN); }); }));
   (m.sp || []).forEach(sch => noteNum(sch, outN, innN));
   const o = ourByN(outN), i = ourByN(innN);
