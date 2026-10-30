@@ -670,7 +670,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.29';
+const APP_VER = 'Ver. B1.30';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -2302,8 +2302,8 @@ function renderInt(m){
 
 /* ---- Archivio ---- */
 function renderArch(m){
-  if(!myKey() || !rolesKnown()) return `<div class="arch">
-    <div class="card"><h2>Accesso</h2><p>${myKey() ? 'Accesso fatto: sto caricando il tuo ruolo dal database. Fra un attimo compaiono le tue schede.' : 'Per usare l\'app entra con il nome utente e la password che ti ha dato Mo. Dopo l\'accesso vedi le schede del tuo ruolo.'}</p>${fbCardHtml()}</div>
+  if(!myKey() || !rolesKnown() || myRole() === 'none') return `<div class="arch">
+    <div class="card"><h2>Accesso</h2><p>${myKey() && rolesKnown() ? `Accesso fatto come «${esc(myKey())}», ma non hai ancora un ruolo. Chiedi a Mo di assegnartelo: poi compaiono le tue schede.` : myKey() ? 'Accesso fatto: sto caricando il tuo ruolo dal database. Fra un attimo compaiono le tue schede.' : 'Per usare l\'app entra con il nome utente e la password che ti ha dato Mo. Dopo l\'accesso vedi le schede del tuo ruolo.'}</p>${fbCardHtml()}</div>
     <div class="card"><h2>Lingua</h2><div class="btnrow">${LANGS.map(([k,n]) => `<button class="btn ${k===LANG?'pri':''}" data-act="setLang" data-l="${k}" data-noi18n>${n}</button>`).join('')}</div></div>
     <p class="hint" data-noi18n>Versione app: <b>${APP_VER}</b></p></div>`;
   const list = Object.values(S.matches).sort((a,b) => (b.date||'').localeCompare(a.date||'') || b.created - a.created);
@@ -3596,14 +3596,17 @@ const STAFF_ROLES = {
   an:{lab:'Match analyst: Pre-partita, Campo, Lavagna e cambi (Tabellino / Cambi)', short:'Analyst', views:['campo','board','pre','cambi'], clock:false},
   pa:{lab:'Preparatore atletico: tempo', short:'Preparatore', views:['tempo'], clock:true},
   tr:{lab:'Tribuna (match analyst): Lavagna con messaggi, Campo, Pre-partita e cambi (Tabellino / Cambi)', short:'Tribuna', views:['board','campo','pre','cambi'], clock:false},
-  hc:{lab:'Head coach (a casa): risultato, cambi e minuti in diretta, solo lettura', short:'Head coach', views:['live'], clock:false, ro:true}
+  hc:{lab:'Head coach (a casa): risultato, cambi e minuti in diretta, solo lettura', short:'Head coach', views:['live'], clock:false, ro:true},
+  none:{lab:'Nessun ruolo: non vede niente', short:'Senza ruolo', views:['arch'], clock:false, ro:true}
 };
+/* ROLE_STRICT: chi non ha un ruolo assegnato non vede niente (solo il titolare ROLE_OWNER ha sempre tutto, per poter dare i ruoli) */
+const ROLE_STRICT = true, ROLE_OWNER = ['molivieri', 'mo'];
 const ALL_VIEWS = ['pre','campo','board','corner','int','cambi','arch'];   // «Note» nascosta su richiesta di Mo (si rimette aggiungendo 'note')
 const myKey = () => (typeof fbOn === 'function' && fbOn() && FB.email) ? fbShowUser(FB.email).trim().toLowerCase() : null;
-function myRole(){ const k = myKey(); if(!k || !S.roles) return 'all';
+function myRole(){ const k = myKey(); if(ROLE_STRICT && k){ if([].concat(ROLE_OWNER).includes(k)) return 'all'; if(!S.roles) return 'none'; } if(!k || !S.roles) return 'all';
   const norm = x => String(x || '').trim().toLowerCase(), base = x => norm(x).split('@')[0];
   let r = S.roles[k]; if(!STAFF_ROLES[r]){ const hit = Object.entries(S.roles).find(([rk]) => norm(rk) === k || base(rk) === base(k)); r = hit && hit[1]; }   // anche «matchanalyst» = «matchanalyst@…»
-  return STAFF_ROLES[r] ? r : 'all'; }
+  return STAFF_ROLES[r] ? r : (ROLE_STRICT ? 'none' : 'all'); }
 /* senza accesso si vede solo l'Archivio (per entrare); dopo l'accesso le schede del proprio ruolo */
 const rolesKnown = () => !!(FBX.ready || FB.synced);   // i ruoli arrivano dal database: finché non sono arrivati almeno una volta, solo Archivio
 const myViews = () => (!myKey() || !rolesKnown()) ? ['arch'] : (STAFF_ROLES[myRole()].views || ALL_VIEWS);
@@ -3611,7 +3614,7 @@ const canClock = () => !!myKey() && rolesKnown() && STAFF_ROLES[myRole()].clock;
 function roleApply(){
   const v = myViews(); if(!v.includes(S.view)) S.view = v[0];
   document.querySelectorAll('#tabs button[data-v]').forEach(b => { b.style.display = v.includes(b.dataset.v) ? '' : 'none'; });
-  document.body.classList.toggle('nologin', !myKey() || !rolesKnown());
+  document.body.classList.toggle('nologin', !myKey() || !rolesKnown() || myRole() === 'none');
   const lim = !canClock();
   ['#clkHalf', '#clkMain'].forEach(s => { const e = $(s); if(e) e.classList.toggle('locked', lim); });
   document.querySelectorAll('.clock [data-act=adj]').forEach(e => e.classList.toggle('locked', lim));
