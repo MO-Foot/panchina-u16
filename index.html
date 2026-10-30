@@ -670,7 +670,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.30';
+const APP_VER = 'Ver. B1.31';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -4195,11 +4195,11 @@ function spImgModel(m, sch){
   const unmarked = oppOn(m).filter(q => !mkOpp.includes(q) && !(ogk && q.id === ogk.id)).sort(byN);
   const opps = table ? [unmarked.shift(), ...mkOpp, ...unmarked].filter(Boolean) : unmarked;   // il primo libero va sul battitore
   const iop = sch.ioppPos || {}, op = iop[side] || {}, opO = iop[side === 'sx' ? 'dx' : 'sx'] || {};
-  const hide = new Set(sch.ohide || []), base = opps.slice(0, Math.max(C.opp.length, table ? 10 : 0));
+  const hide = new Set(sch.ohide || []), base = [];   // gli avversari non compaiono più da soli: solo quelli aggiunti a mano con «+ Avversario» (richiesta di Mo)
   const added = (sch.oadd || []).map(id => m.their.find(q => q.id === id) || (String(id).startsWith('gen_') ? {id, n:'', gen:true} : null)).filter(q => q && !base.includes(q));
   const vOpp = (q, d) => op[q.id] || (MIRF && opO[q.id] ? [+(100 - opO[q.id][0]).toFixed(1), opO[q.id][1]] : null) || [X(d[0]), d[1]];
   base.forEach((q, i) => { if(hide.has(q.id)) return; const v = vOpp(q, C.opp[i] || [60 + (i % 3) * 5, 45 + Math.floor(i / 3) * 6]); items.push({kind:'opp', key:'o:' + q.id, q, x:v[0], y:v[1]}); });
-  added.forEach((q, i) => { const v = vOpp(q, [58 + (i % 4) * 6, 54 + Math.floor(i / 4) * 8]); items.push({kind:'opp', key:'o:' + q.id, q, x:v[0], y:v[1], extra:true}); });
+  added.forEach((q, i) => { const v = vOpp(q, C.opp[i] || [58 + (i % 4) * 6, 54 + Math.floor(i / 4) * 8]); items.push({kind:'opp', key:'o:' + q.id, q, x:v[0], y:v[1], extra:true}); });
   return {C, side, mir, items, mkS:table ? mkS : null, vicN};
 }
 function spImgView(m, sch){
