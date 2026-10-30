@@ -670,7 +670,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.31';
+const APP_VER = 'Ver. B1.32';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -2827,8 +2827,17 @@ const ACT = {
     const rank = {tit:0, pan:1, usc:2};
     const list = m.our.filter(p => p.st !== 'out' && !cur.includes(p.n)).sort((a,b) => (rank[a.st] - rank[b.st]) || byN(a,b));
     const opts = list.map(p => ({label:String(p.n), sub:[p.name, p.st==='tit' ? '' : ST_LAB[p.st], spBusyLab(sch, sl, p.n)].filter(Boolean).join(' · '), cls:spBusy(sch, sl, p.n).length ? 'used' : ''}));
+    // chi è già in questo stesso compito: si scambiano i posti
+    const same = cur.filter(x => x !== n);
+    same.forEach(b => { const q = ourByN(b); opts.push({label:String(b), sub:[q && q.name, 'scambia il posto'].filter(Boolean).join(' · '), cls:'used'}); });
     opts.push({label:'—', sub:'Togli il ' + n + ' da questo compito'});
     pickModal(`${sl.label}: al posto del ${n}${o && o.name ? ' (' + o.name + ')' : (o ? '' : ', non in rosa')}…`, opts, i => {
+      if(i >= list.length && i < list.length + same.length){ const b = same[i - list.length];
+        setNums(sch, sl, cur.map(x => x === n ? b : x === b ? n : x));
+        const box = el.closest && el.closest('.spimg'), side = (box && box.dataset.side) || (typeof spImgSide === 'function' ? spImgSide(sch) : 'dx');
+        const P = sch.ipos && sch.ipos[side], ka = sl.id + '#' + n, kb = sl.id + '#' + b;
+        if(P && (P[ka] || P[kb])){ const a = P[ka], c = P[kb]; if(c) P[ka] = c; else delete P[ka]; if(a) P[kb] = a; else delete P[kb]; }
+        save(); render(); return toast(`Scambiati di posto il ${n} e il ${b}`); }
       if(i < list.length) noteNum(sch, n, list[i].n);
       const busy = i < list.length ? spBusy(sch, sl, list[i].n) : [];
       busy.forEach(o => setNums(sch, o, (() => { const a = nums(sch, o).map(x => x === list[i].n ? n : x); return a.filter((x, k) => a.indexOf(x) === k); })()));   // scambio: chi aveva quel compito prende il posto del n
