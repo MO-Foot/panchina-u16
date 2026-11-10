@@ -116,6 +116,8 @@ main{padding:12px;padding-bottom:40px}
 .pre .master.wide{grid-column:1/-1;grid-row:3}
 .mbar{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 8px}
 .mastercol .pitch{width:100%}
+.mastercol.mz .pitch{width:calc(var(--mz) * 100%)!important}.mastercol.mz .bench{max-width:calc(var(--mz) * 100%)}
+.mzctl{display:inline-flex;align-items:center;border:1.5px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)}.mzctl button{border:0;background:transparent;min-height:44px;min-width:44px;font-size:1.3rem;font-weight:700}.mzctl button:disabled{opacity:.3}.mzctl b{padding:0 6px;font-size:.9rem;white-space:nowrap}
 .mpanel{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
 .tok.ourt.ourgk{background:var(--our-tok,var(--our));color:var(--our-tok-ink,var(--our-ink));border:3px solid var(--gk-b-our,#1f5fd1);box-shadow:0 0 0 1px #fff,0 2px 6px rgba(0,0,0,.35)}
 :root[data-theme="blu"]{--gk-b-our:#ff8a00}
@@ -176,7 +178,7 @@ main{padding:12px;padding-bottom:40px}
 .mklines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .mklines line{stroke:#ffe14d;stroke-width:.45;stroke-dasharray:1.2 .8}
 .tok .mk.none{bottom:auto;top:-30%;left:auto;right:-35%;transform:none;min-width:0;width:calc(var(--t)*.55);height:calc(var(--t)*.55);border-radius:50%;padding:0}
-@media (max-width:1199px){ .pre .master{grid-column:1/-1;grid-row:3} .pre .precol{grid-row:1 / span 2} .mastercol .pitch{width:min(100%, calc((100vh - 230px) * 105 / 68))} }
+@media (max-width:1199px){ .pre .master{grid-column:1/-1;grid-row:3} .pre .precol{grid-row:1 / span 2} .mastercol .pitch{width:min(100%, calc((100vh - 230px) * 105 / 68))} .mastercol.mz .pitch{width:min(calc(var(--mz) * 100%), calc(var(--mz) * (100vh - 230px) * 105 / 68))!important} }
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .ourcols{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}.chips.col{flex-direction:column;flex-wrap:nowrap}.chips.col .pchip{width:100%}
 .tok .rl{position:absolute;top:-11px;left:50%;transform:translateX(-50%);font-family:var(--num);font-size:.7rem;line-height:1;font-weight:700;padding:2px 5px;border-radius:5px;background:#111;color:#fff;white-space:nowrap;pointer-events:none}
@@ -683,7 +685,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.35';
+const APP_VER = 'Ver. B1.36';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -1166,8 +1168,8 @@ function renderMaster(m){
   const om = ourMaster(m), ogk = ourGK(m);
   const ourToks = field(m).map(o => { const q = om[o.id]; if(!q) return ''; return `<div class="tok ourt ${o === ogk ? 'ourgk' : ''}" data-our="${o.id}" style="left:${q.x}%;top:${q.y}%">${o.ruolo ? `<span class="rl">${esc(o.ruolo)}</span>` : ''}${o.n}${nameTag(o)}</div>`; }).join('');
   const fsel = (k, v) => `<select data-mf="${k}" aria-label="Modulo">${Object.keys(FORM).map(f => `<option value="${f}" ${f===v?'selected':''}>1-${f}</option>`).join('')}</select>`;
-  return planBar(m) + `<div class="mbar">${quickDisp(m)}<label class="bsel"><span class="sw our"></span>Noi ${fsel('fOur', m.fOur || '4-3-3')}</label>${plan ? '' : `<label class="bsel"><span class="sw opp"></span>Loro ${fsel('formation', m.formation || '4-4-2')}</label>`}<span style="flex:1"></span>${moreBtn('master')}</div>${morePanel('master', `<button class="btn" data-act="dispSave" data-close="1">💾 Salva disposizione</button><button class="btn" data-act="dispList" data-close="1">📂 Disposizioni${(m.saved || []).length ? ' (' + m.saved.length + ')' : ''}</button><button class="btn" data-act="ourByRole" data-close="1" title="Mette i nostri titolari al posto del loro ruolo (dal numero)">🎯 Per ruolo</button><button class="btn" data-act="numRolesEdit" data-close="1" title="Quali numeri fanno quale ruolo">⚙ Ruoli</button>${namesToggle()}${tokSizer()}`)}
-  <div class="mastercol">
+  return planBar(m) + `<div class="mbar">${quickDisp(m)}<label class="bsel"><span class="sw our"></span>Noi ${fsel('fOur', m.fOur || '4-3-3')}</label>${plan ? '' : `<label class="bsel"><span class="sw opp"></span>Loro ${fsel('formation', m.formation || '4-4-2')}</label>`}<span style="flex:1"></span>${mzCtl()}${moreBtn('master')}</div>${morePanel('master', `<button class="btn" data-act="dispSave" data-close="1">💾 Salva disposizione</button><button class="btn" data-act="dispList" data-close="1">📂 Disposizioni${(m.saved || []).length ? ' (' + m.saved.length + ')' : ''}</button><button class="btn" data-act="ourByRole" data-close="1" title="Mette i nostri titolari al posto del loro ruolo (dal numero)">🎯 Per ruolo</button><button class="btn" data-act="numRolesEdit" data-close="1" title="Quali numeri fanno quale ruolo">⚙ Ruoli</button>${namesToggle()}${tokSizer()}`)}
+  <div class="mastercol ${MZ < 1 ? 'mz' : ''}" style="--mz:${MZ}">
     <div class="pitchwrap">
       <div class="pitch ${m.flip?'flip':''}" id="pitch">${PITCH_SVG}${ghosts}${ourToks}${toks}</div>
       ${benchHTML(m)}
@@ -4356,6 +4358,10 @@ ACT.spMenu = el => { UI.spMenu = UI.spMenu === el.dataset.k ? null : el.dataset.
 /* menu «⋯» generico (B1.35): le opzioni meno usate di una barra stanno qui */
 const moreBtn = (k, lab) => `<button class="btn morebtn ${UI.more === k ? 'on' : ''}" data-act="moreT" data-k="${k}" title="Altre opzioni" aria-label="Altre opzioni">${lab || '⋯'}</button>`;
 const morePanel = (k, html) => UI.more === k ? `<div class="spmenu morepanel">${html}</div>` : '';
+/* zoom del campo master (B1.36): − / + da 40% a 100%, ricordato su questo dispositivo */
+let MZ = (() => { try { const v = +localStorage.getItem(LS + '.mz'); return v >= .4 && v <= 1 ? v : 1; } catch(e){ return 1; } })();
+const mzCtl = () => `<span class="mzctl" title="Grandezza del campo"><button data-act="mz" data-d="-1" ${MZ <= .4 ? 'disabled' : ''} aria-label="Campo più piccolo">−</button><b>🔍 ${Math.round(MZ * 100)}%</b><button data-act="mz" data-d="1" ${MZ >= 1 ? 'disabled' : ''} aria-label="Campo più grande">+</button></span>`;
+ACT.mz = el => { MZ = Math.min(1, Math.max(.4, Math.round((MZ + (+el.dataset.d) * .1) * 10) / 10)); try{ localStorage.setItem(LS + '.mz', String(MZ)); }catch(e){} render(); };
 ACT.preTab = el => { UI.preTab = el.dataset.v; UI.more = null; render(); window.scrollTo(0, 0); };
 ACT.moreT = el => { UI.more = UI.more === el.dataset.k ? null : el.dataset.k; UI.spMenu = null; render(); };
 /* il menu ⚙ si chiude toccando fuori, o dopo un'azione che cambia modalità */
