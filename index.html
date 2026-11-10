@@ -120,6 +120,8 @@ main{padding:12px;padding-bottom:40px}
 .campo3 .halves .halfwrap{flex:0 0 min(calc(50% - 6px), calc((100vh - 330px) * 52.5 / 68))}
 .campo3.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 .campo3.one{grid-template-columns:minmax(0,1fr)}
+/* palle ferme: «Importa PDF» e «PowerPoint» nascosti (richiesta di Mo, il codice resta) */
+[data-act="spPdf"],[data-act="spPptx"]{display:none!important}
 .gkpriv{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 10px;padding:10px 14px;border-radius:12px;background:#fff3c4;border:2px solid #f0b400;color:#5a4300;font-size:.95rem}.gkpriv .btn{margin-left:auto;min-height:38px}
 .btn.qdisp.dirty{box-shadow:0 0 0 3px #ffb300 inset}
 .campo3.one .halves .halfwrap{flex:0 0 min(calc(50% - 6px), calc((100vh - 300px) * 52.5 / 68))}
@@ -670,7 +672,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.32';
+const APP_VER = 'Ver. B1.33';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
