@@ -1,6 +1,6 @@
 /* Panchina U16: copia offline. Cambia VERSION a ogni aggiornamento dell'app. */
-const VERSION = 'panchina-B1.38';
-const FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
+const VERSION = 'panchina-B1.39';
+const FILES = ['./', './index.html', './manifest.webmanifest', './favicon-32.png', './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 // all'installazione scarica sempre dal server (mai dalla cache del browser)
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES.map(u => new Request(u, {cache:'reload'})))).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSION).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
