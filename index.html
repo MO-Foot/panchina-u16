@@ -685,7 +685,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.37';
+const APP_VER = 'Ver. B1.38';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -2009,13 +2009,15 @@ function renderBoard(m){
   const b = m.board, draw = UI.bMode === 'draw', erase = UI.bMode === 'erase', col = UI.bCol || BCOLS[0];
   if(!Array.isArray(b.lc)) b.lc = [];
   const lcol = i => b.lc[i] || BCOLS[0];
+  const bName = n => { if(!S.bNames) return ''; const o = m.our.find(q => q.n === n), sn = surname(o); return sn ? `<span class="tn">${esc(sn)}</span>` : ''; };   // cognomi dei nostri sotto le pedine
   const fsel = (k, v) => `<select data-bf="${k}" aria-label="Modulo">${Object.keys(FORM).map(f => `<option value="${f}" ${f===v?'selected':''}>1-${f}</option>`).join('')}</select>`;
-  const toks = [...b.opp.map((p, i) => `<div class="tok" data-b="opp:${i}" style="left:${p.x}%;top:${p.y}%">${p.n}</div>`), ...b.our.map((p, i) => `<div class="tok ourt" data-b="our:${i}" style="left:${p.x}%;top:${p.y}%">${p.n}</div>`)].join('');
+  const toks = [...b.opp.map((p, i) => `<div class="tok" data-b="opp:${i}" style="left:${p.x}%;top:${p.y}%">${p.n}</div>`), ...b.our.map((p, i) => `<div class="tok ourt" data-b="our:${i}" style="left:${p.x}%;top:${p.y}%">${p.n}${bName(p.n)}</div>`)].join('');
   return `<div class="bbar">
     <label class="bsel"><span class="sw our"></span>Noi ${fsel('fOur', b.fOur)}</label>
     <label class="bsel"><span class="sw opp"></span>Loro ${fsel('fOpp', b.fOpp)}</label>
     <button class="btn ${b.man?'pri':''}" data-act="bReset" title="Riaggancia la lavagna alla situazione del Campo">↻ Aggiorna dal Campo</button>
     <button class="btn ${m.flip?'tog':''}" data-act="flip" title="Gira il campo come lo vedi dalla panchina">⟲ Gira campo</button>
+    <label class="ntog"><input type="checkbox" data-act="bNames" ${S.bNames ? 'checked' : ''}> Cognomi</label>
     <span style="flex:1"></span>
     <div class="seg"><button class="${draw||erase?'':'on'}" data-act="bMode" data-v="move">✋ Muovi</button><button class="${draw?'on':''}" data-act="bMode" data-v="draw">✎ Disegna</button><button class="${erase?'on':''}" data-act="bMode" data-v="erase" title="Tocca un segno per cancellarlo">⌫ Gomma</button></div>
     ${draw ? `<div class="bpal" role="group" aria-label="Colore">${BCOLS.map(c => `<button class="${c===col?'on':''}" data-act="bCol" data-c="${c}" style="background:${c}" aria-label="Colore"></button>`).join('')}</div>` : ''}
@@ -2752,6 +2754,7 @@ const ACT = {
   kpSkip(){ const m = M(), plan = activePlan(m), sid = MC.slotId; closeModal(); const nx = nextEmptySlot(m, plan, sid); if(nx && nx.id !== sid) openKeypad(nx.id); },
   sel(el){ UI.sel = el.dataset.id; render(); },
   names(){ S.showNames = !S.showNames; save(true, {pref:true}); render(); },
+  bNames(){ S.bNames = !S.bNames; save(true, {pref:true}); render(); },
   dispSave(){
     const m = M(), k = (m.saved || []).length + 1, def = 'Disposizione ' + k + (started(m) ? ' · ' + minLabel(m) : '');
     openModal(`<h2>Salva disposizione</h2><p class="hint" style="margin-top:0">Salva le posizioni di tutti, nel master e nelle 4 fasi, con i moduli. Potrai tornarci anche dopo aver cambiato il modulo.</p>
