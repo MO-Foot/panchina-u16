@@ -687,7 +687,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 /* ============ Stato & salvataggio ============ */
 let storageOK = true;
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ storageOK=false; return null; } }
-const APP_VER = 'Ver. B1.39';
+const APP_VER = 'Ver. B1.40';
 /* lingua dello schermo (definita qui perché serve già al primo disegno) */
 let LANG = (() => { try { return localStorage.getItem('panchinaU16.lang') || 'it'; } catch(e){ return 'it'; } })();
 const LANGS = [['it','Italiano'],['de','Deutsch'],['fr','Français'],['en','English']];
@@ -935,7 +935,7 @@ function render(){
   if(pTop != null){ const pNew = $('#pitch'); if(pNew){ const d = pNew.getBoundingClientRect().top - pTop; if(Math.abs(d) > 1) window.scrollBy(0, d); } }
   if(S.view === 'pre'){ bindPitch(); bindBench(); }
   if(S.view === 'campo'){ bindPhases(); bindBench(); bindOurBench(); }
-  if(S.view === 'board') bindBoard();
+  if(S.view === 'board'){ bindBoard(); fitBoard(); }
   if(typeof liveTick === 'function') liveTick();
   const dl = $('#dbxLink'); if(dl) dbxAuthUrl().then(u => { dl.href = u; const ui = $('#dbxUrl'); if(ui) ui.value = u; }).catch(e => { const ui = $('#dbxUrl'); if(ui) ui.value = 'Errore: ' + (e && e.message || e); });
   tick(); updSave();
@@ -2025,6 +2025,7 @@ function renderBoard(m){
     ${draw ? `<div class="bpal" role="group" aria-label="Colore">${BCOLS.map(c => `<button class="${c===col?'on':''}" data-act="bCol" data-c="${c}" style="background:${c}" aria-label="Colore"></button>`).join('')}</div>` : ''}
     <button class="btn" data-act="bUndo" ${b.lines.length?'':'disabled'} aria-label="Annulla l'ultimo segno">↶ Annulla</button>
     <button class="btn" data-act="bClear" ${b.lines.length?'':'disabled'}>Cancella</button>
+    ${bzCtl()}
     ${moreBtn('board')}${morePanel('board', tokSizer())}
   </div>
   <div class="pitchwrap"><div class="pitch board ${draw||erase?'drawing':''} ${erase?'erasing':''} ${m.flip?'flip':''}" id="board">${PITCH_SVG}
@@ -4366,6 +4367,17 @@ const morePanel = (k, html) => UI.more === k ? `<div class="spmenu morepanel">${
 /* zoom del campo master (B1.36): − / + da 40% a 100%, ricordato su questo dispositivo */
 let MZ = (() => { try { const v = +localStorage.getItem(LS + '.mz'); return v >= .4 && v <= 1 ? v : 1; } catch(e){ return 1; } })();
 const mzCtl = () => `<span class="mzctl" title="Grandezza del campo"><button data-act="mz" data-d="-1" ${MZ <= .4 ? 'disabled' : ''} aria-label="Campo più piccolo">−</button><b>🔍 ${Math.round(MZ * 100)}%</b><button data-act="mz" data-d="1" ${MZ >= 1 ? 'disabled' : ''} aria-label="Campo più grande">+</button></span>`;
+// Lavagna: il campo entra sempre nello schermo (fitBoard) + zoom − / + ricordato sul dispositivo (BZ)
+var BZ = (() => { try { const v = +localStorage.getItem(LS + '.bz'); return v >= .4 && v <= 1 ? v : 1; } catch(e){ return 1; } })();
+const bzCtl = () => `<span class="mzctl" title="Grandezza del campo"><button data-act="bz" data-d="-1" ${BZ <= .4 ? 'disabled' : ''} aria-label="Campo più piccolo">−</button><b>🔍 ${Math.round(BZ * 100)}%</b><button data-act="bz" data-d="1" ${BZ >= 1 ? 'disabled' : ''} aria-label="Campo più grande">+</button></span>`;
+ACT.bz = el => { BZ = Math.min(1, Math.max(.4, Math.round((BZ + (+el.dataset.d) * .1) * 10) / 10)); try{ localStorage.setItem(LS + '.bz', String(BZ)); }catch(e){} render(); };
+function fitBoard(){
+  const el = $('#board'); if(!el) return;
+  const top = el.getBoundingClientRect().top + window.scrollY;
+  const avail = Math.max(220, window.innerHeight - top - 14);
+  el.style.width = `min(100%, ${Math.round(avail * 105 / 68 * BZ)}px)`;
+}
+window.addEventListener('resize', () => { if(S.view === 'board') fitBoard(); });
 ACT.mz = el => { MZ = Math.min(1, Math.max(.4, Math.round((MZ + (+el.dataset.d) * .1) * 10) / 10)); try{ localStorage.setItem(LS + '.mz', String(MZ)); }catch(e){} render(); };
 ACT.preTab = el => { UI.preTab = el.dataset.v; UI.more = null; render(); window.scrollTo(0, 0); };
 ACT.moreT = el => { UI.more = UI.more === el.dataset.k ? null : el.dataset.k; UI.spMenu = null; render(); };
